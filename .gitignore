@@ -1,23 +1,38 @@
-# Environment Variables
-.env
-
-# Python
+# ── Dependencies ──────────────────────────────────────────────
+node_modules/
 __pycache__/
+*.pyc
+*.pyo
 *.py[cod]
 *$py.class
 .venv/
-env/
 venv/
+env/
 ENV/
 
-# Docker
-.docker/
+# ── Build artifacts ───────────────────────────────────────────
+.next/
+out/
+dist/
+build/
+*.egg-info/
 
-# Data & Storage
-/qdrant_storage/
-*.log
+# ── Environment ──────────────────────────────────────────────
+.env
+.env.local
+.env*.local
 
-# Editor
+# ── IDE / OS ─────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Docker & Storage ─────────────────────────────────────────
+*.log
+docker-compose.override.yml
+.docker/
+/qdrant_storage/
+/qdrant/storage/

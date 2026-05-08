@@ -73,11 +73,11 @@ def run_ingestion_test():
     logger.info(f"Testing retrieval with query: '{query}'")
     
     query_vector = ollama_client.embeddings(model=EMBED_MODEL, prompt=query)['embedding']
-    search_result = qdrant_client.search(
+    search_result = qdrant_client.query_points(
         collection_name=COLLECTION_NAME,
-        query_vector=query_vector,
+        query=query_vector,
         limit=1
-    )
+    ).points
 
     if search_result:
         top_hit = search_result[0]

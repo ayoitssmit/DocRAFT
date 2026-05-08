@@ -3,8 +3,12 @@ node_modules/
 __pycache__/
 *.pyc
 *.pyo
+*.py[cod]
+*$py.class
 .venv/
 venv/
+env/
+ENV/
 
 # ── Build artifacts ───────────────────────────────────────────
 .next/
@@ -26,6 +30,9 @@ build/
 .DS_Store
 Thumbs.db
 
-# ── Docker ───────────────────────────────────────────────────
+# ── Docker & Storage ─────────────────────────────────────────
 *.log
 docker-compose.override.yml
+.docker/
+/qdrant_storage/
+/qdrant/storage/

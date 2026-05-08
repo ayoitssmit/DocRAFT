@@ -1,0 +1,17 @@
+[
+    {
+        "id": 1,
+        "text": "The DocRAFT system uses an advanced Retrieval-Augmented Fine-Tuning architecture to improve LLM accuracy on enterprise documents.",
+        "metadata": {"source": "manual", "topic": "architecture"}
+    },
+    {
+        "id": 2,
+        "text": "Qdrant is our primary vector database, selected for its high-performance gRPC interface and efficient payload filtering.",
+        "metadata": {"source": "manual", "topic": "infrastructure"}
+    },
+    {
+        "id": 3,
+        "text": "Ollama provides the local inference engine for our baseline models, supporting Qwen 2.5 and Llama 3 architectures.",
+        "metadata": {"source": "manual", "topic": "inference"}
+    }
+]

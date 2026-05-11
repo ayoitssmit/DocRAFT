@@ -21,7 +21,18 @@
 ### Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (with Compose v2)
-- [Ollama](https://ollama.ai/) running locally with required models
+- [Ollama](https://ollama.ai/) running locally
+
+#### Ollama Setup
+To use the local AI features, you must pull the following models:
+
+```bash
+# Core inference model
+ollama pull qwen2.5-coder:7b
+
+# Embedding model
+ollama pull nomic-embed-text
+```
 
 ### 1 — Clone & configure
 

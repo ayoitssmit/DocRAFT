@@ -38,3 +38,6 @@ docker-compose.override.yml
 /qdrant/storage/
 /data/pdfs/
 /data/markdown/
+/data/images/
+frontend/AGENTS.md
+frontend/CLAUDE.md

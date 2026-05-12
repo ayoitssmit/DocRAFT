@@ -1,0 +1,37 @@
+"""
+Ingestion pipeline configuration.
+Tunable parameters for document conversion, chunking, and storage.
+"""
+
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# ── Environment ──────────────────────────────────────────────────────────────
+env_path = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
+# ── Ollama ───────────────────────────────────────────────────────────────────
+OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+EMBED_MODEL: str = os.getenv("EMBED_MODEL", "nomic-embed-text")
+
+# ── Qdrant ───────────────────────────────────────────────────────────────────
+QDRANT_HOST: str = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_PORT: int = int(os.getenv("QDRANT_PORT", "6333"))
+COLLECTION_NAME: str = "docraft_knowledge"
+
+# ── Paths ────────────────────────────────────────────────────────────────────
+PROJECT_ROOT: Path = Path(__file__).parent.parent.parent
+PDF_INPUT_DIR: Path = PROJECT_ROOT / "data" / "pdfs"
+MARKDOWN_OUTPUT_DIR: Path = PROJECT_ROOT / "data" / "markdown"
+IMAGE_OUTPUT_DIR: Path = PROJECT_ROOT / "data" / "images"
+
+# ── Images & Vision ──────────────────────────────────────────────────────────
+VISION_MODEL: str = os.getenv("VISION_MODEL", "granite3.2-vision:2b")
+
+# ── Chunking ─────────────────────────────────────────────────────────────────
+# Initial defaults. Tune in Week 3/4 once retrieval quality metrics are available.
+# nomic-embed-text context window: 2048-8192 tokens.
+# 512-char chunks are very safe and good for granular retrieval.
+CHUNK_SIZE: int = 512
+CHUNK_OVERLAP: int = 64

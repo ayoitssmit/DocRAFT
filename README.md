@@ -74,6 +74,36 @@ npm install
 npm run dev
 ```
 
+## Ingestion Pipeline (Multimodal)
+
+DocRAFT includes a sophisticated multimodal ingestion pipeline that converts PDFs to Markdown, extracts images, and uses Vision AI to generate technical descriptions for architectural diagrams and charts.
+
+### 1 — Prerequisites
+Ensure you have the vision model pulled in Ollama:
+```bash
+ollama pull granite3.2-vision:2b
+```
+
+### 2 — Running the Pipeline
+The pipeline is located in `backend/ingestion`. You can process an entire directory of PDFs or a single file:
+
+**Single File:**
+```bash
+python -m backend.ingestion.pipeline --pdf-file data/pdfs/qlora.pdf
+```
+
+**Directory:**
+```bash
+python -m backend.ingestion.pipeline --pdf-dir data/pdfs/
+```
+
+The pipeline will:
+1. Extract text and images from the PDF.
+2. Generate high-fidelity technical descriptions for images using Vision AI.
+3. Perform semantic chunking.
+4. Embed both text and image intelligence into Qdrant.
+5. Save enriched Markdown to `data/markdown/`.
+
 ## Project Structure
 
 ```

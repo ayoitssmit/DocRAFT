@@ -51,6 +51,7 @@ This is a **2-person collaborative project**. Both members work in parallel on d
 | Chunking | LlamaIndex | >=0.12.0 | Markdown-aware document chunking (Week 2+) |
 | HTTP Client | httpx | >=0.27.0 | Async HTTP requests |
 | Env Config | python-dotenv | >=1.0.0 | `.env` file loading |
+| Package Mgr | uv | latest | Fast Python package management |
 
 ### Frontend
 | Component | Technology | Version |
@@ -474,17 +475,14 @@ To ensure library consistency between `ayoitssmit` and `Jalpan04`, both MUST use
    ```bash
    cd backend
    ```
-2. Create the virtual environment:
+2. Create and activate the virtual environment using `uv`:
    ```bash
-   python -m venv venv
+   uv venv
+   .\.venv\Scripts\activate
    ```
-3. Activate the environment (Windows):
+3. Install dependencies:
    ```bash
-   .\venv\Scripts\activate
-   ```
-4. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
+   uv pip install -r requirements.txt
    ```
 
 #### 13.2. Running with Docker Compose (Recommended)
@@ -536,6 +534,7 @@ python -m backend.ingestion.test_pipeline
 
 - All dependencies go in `backend/requirements.txt`.
 - Pin minimum versions with `>=`, not exact pins (allows flexibility).
+- **Use `uv pip install -r requirements.txt`** for installation.
 - When adding a new dependency, also update the Dockerfile if it needs system-level libraries.
 - The `backend/retrieval/requirements.txt` is a subset used for standalone retrieval scripts.
 

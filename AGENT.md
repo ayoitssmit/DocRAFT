@@ -20,10 +20,10 @@
 
 This is a **2-person collaborative project**. Both members work in parallel on different tracks.
 
-| GitHub Handle | Name | Role | Track |
-|---|---|---|---|
-| `ayoitssmit` | Smit Shah | Admin / Full-Stack Lead | Frontend (Next.js), FastAPI endpoints, DevOps, UI/UX |
-| `Jalpan04` | Jalpan Vyas | Collaborator / AI-ML Lead | Document processing, RAG pipeline, embeddings, fine-tuning |
+| GitHub Handle | Name | Role | Track | GPU |
+|---|---|---|---|---|
+| `ayoitssmit` | Smit Shah | Admin / Full-Stack Lead | Frontend (Next.js), FastAPI endpoints, DevOps, UI/UX | NO |
+| `Jalpan04` | Jalpan Vyas | Collaborator / AI-ML Lead | Document processing, RAG pipeline, embeddings, fine-tuning | **YES (NVIDIA)** |
 
 ### Ownership Boundaries
 
@@ -462,6 +462,7 @@ app = FastAPI(title="DocRAFT API", version="0.1.0", lifespan=lifespan)
 8. NEVER push directly to `main` without a PR for non-trivial changes.
 9. **NEVER use emojis** in code comments, commit messages, or documentation.
 10. **NEVER create placeholder/stub implementations** without marking them clearly with `# TODO: <issue-number>` comments.
+11. **ALWAYS prioritize GPU/CUDA acceleration** for AI-ML tasks on `Jalpan04` machine (Docling, Training, Inference). Ensure code checks for `torch.cuda.is_available()`.
 
 ---
 

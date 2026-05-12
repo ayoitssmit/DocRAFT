@@ -457,8 +457,8 @@ app = FastAPI(title="DocRAFT API", version="0.1.0", lifespan=lifespan)
 4. **NEVER add cloud API dependencies** (OpenAI, Anthropic, etc.) without explicit approval. This project is local-first.
 5. **NEVER modify files outside your ownership track** without coordination (see Section 2).
 6. **NEVER use `SentenceSplitter`** for document chunking when Markdown structure is available. Use `MarkdownNodeParser`.
-7. **NEVER install packages globally.** Always use a virtual environment.
-8. **NEVER push directly to `main`** without a PR for non-trivial changes.
+7. NEVER install packages globally. **Always use the local `venv` in the `backend/` directory.**
+8. NEVER push directly to `main` without a PR for non-trivial changes.
 9. **NEVER use emojis** in code comments, commit messages, or documentation.
 10. **NEVER create placeholder/stub implementations** without marking them clearly with `# TODO: <issue-number>` comments.
 
@@ -466,8 +466,28 @@ app = FastAPI(title="DocRAFT API", version="0.1.0", lifespan=lifespan)
 
 ## 13. Running the Project
 
-### Option A: Docker Compose (recommended)
+#### 13.1. Environment Setup (MANDATORY)
+To ensure library consistency between `ayoitssmit` and `Jalpan04`, both MUST use a virtual environment named `venv` inside the `backend/` directory.
 
+**Exact Steps to Setup:**
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Create the virtual environment:
+   ```bash
+   python -m venv venv
+   ```
+3. Activate the environment (Windows):
+   ```bash
+   .\venv\Scripts\activate
+   ```
+4. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+#### 13.2. Running with Docker Compose (Recommended)
 ```bash
 docker compose -f infra/docker-compose.yml up --build
 ```

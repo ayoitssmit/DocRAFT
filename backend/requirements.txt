@@ -8,6 +8,11 @@ pydantic>=2.7.0
 ollama>=0.1.7
 qdrant-client>=1.8.0
 
+# Document processing (Issue #3)
+docling>=2.0.0
+llama-index-core>=0.12.0
+llama-index-readers-docling>=0.3.0
+
 # Utilities
 python-dotenv>=1.0.0
 httpx>=0.27.0

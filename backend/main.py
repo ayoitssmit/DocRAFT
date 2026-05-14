@@ -17,6 +17,12 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
 import uuid
 import traceback
+import tempfile
+import os
+
+from docling.document_converter import DocumentConverter
+from llama_index.core import Document
+from llama_index.core.node_parser import MarkdownNodeParser
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -75,7 +81,7 @@ app = FastAPI(
 # CORS — allow the Next.js frontend in dev
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -123,28 +129,59 @@ async def root():
 
 @app.post("/upload", tags=["Documents"])
 async def upload_document(file: UploadFile = File(...)):
-    """Uploads a document, generates embeddings, and stores it in Qdrant."""
+    """Uploads a PDF, processes with Docling (Image Injection), chunks with LlamaIndex, and stores in Qdrant."""
     try:
-        content = await file.read()
-        text = content.decode("utf-8")
+        # Create temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+            tmp.write(await file.read())
+            tmp_path = tmp.name
+
+        # 1. Docling + Image Injection
+        # We instantiate DocumentConverter. Docling automatically extracts tables and handles images in the markdown export.
+        converter = DocumentConverter()
+        conv_res = converter.convert(tmp_path)
+        md_text = conv_res.document.export_to_markdown()
+
+        # 2. LlamaIndex Chunking
+        doc = Document(text=md_text, metadata={"filename": file.filename})
+        parser = MarkdownNodeParser()
+        nodes = parser.get_nodes_from_documents([doc])
         
-        response = ollama_client.embeddings(model=EMBED_MODEL, prompt=text)
-        embedding = response['embedding']
-        
-        doc_id = str(uuid.uuid4())
-        
-        qdrant_client.upsert(
-            collection_name=COLLECTION_NAME,
-            points=[
+        # 3. Generate embeddings and store in Qdrant
+        points = []
+        for i, node in enumerate(nodes):
+            text = node.text
+            # Skip empty chunks
+            if not text.strip():
+                continue
+                
+            response = ollama_client.embeddings(model=EMBED_MODEL, prompt=text)
+            embedding = response['embedding']
+            
+            doc_id = str(uuid.uuid4())
+            points.append(
                 qdrant_models.PointStruct(
                     id=doc_id,
                     vector=embedding,
-                    payload={"text": text, "filename": file.filename}
+                    payload={
+                        "text": text,
+                        "filename": file.filename,
+                        "chunk_index": i,
+                        "metadata": node.metadata
+                    }
                 )
-            ]
-        )
+            )
+
+        if points:
+            qdrant_client.upsert(
+                collection_name=COLLECTION_NAME,
+                points=points
+            )
+            
+        # Clean up temp file
+        os.remove(tmp_path)
         
-        return {"status": "success", "doc_id": doc_id, "filename": file.filename}
+        return {"status": "success", "chunks_created": len(points), "filename": file.filename}
     except Exception as e:
         logger.error(f"Upload failed: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

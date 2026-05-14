@@ -35,17 +35,27 @@ logger = logging.getLogger("docraft")
 # ── Configuration ────────────────────────────────────────────────────────────
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+# Use 127.0.0.1 for local host reliability
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
-QDRANT_HOST = os.getenv("QDRANT_HOST", "localhost")
+QDRANT_HOST = os.getenv("QDRANT_HOST", "127.0.0.1")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 COLLECTION_NAME = "docraft_knowledge"
 
 try:
     ollama_client = OllamaClient(host=OLLAMA_HOST)
-    qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+    
+    # Use local mode if in development and not forced to use host
+    if ENVIRONMENT == "development" and QDRANT_HOST in ["localhost", "127.0.0.1"]:
+        logger.info("Using Local Disk Mode for Qdrant")
+        qdrant_client = QdrantClient(path="local_qdrant")
+    else:
+        qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 except Exception as e:
     logger.error(f"Failed to initialize clients: {e}")
+
+# Import our custom pipeline AFTER basic config
+from ingestion.pipeline import run_ingestion
 
 
 # ── Lifespan ─────────────────────────────────────────────────────────────────
@@ -129,59 +139,31 @@ async def root():
 
 @app.post("/upload", tags=["Documents"])
 async def upload_document(file: UploadFile = File(...)):
-    """Uploads a PDF, processes with Docling (Image Injection), chunks with LlamaIndex, and stores in Qdrant."""
+    """Uploads a PDF and processes it using the advanced Multimodal Ingestion Pipeline."""
     try:
         # Create temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             tmp.write(await file.read())
             tmp_path = tmp.name
-
-        # 1. Docling + Image Injection
-        # We instantiate DocumentConverter. Docling automatically extracts tables and handles images in the markdown export.
-        converter = DocumentConverter()
-        conv_res = converter.convert(tmp_path)
-        md_text = conv_res.document.export_to_markdown()
-
-        # 2. LlamaIndex Chunking
-        doc = Document(text=md_text, metadata={"filename": file.filename})
-        parser = MarkdownNodeParser()
-        nodes = parser.get_nodes_from_documents([doc])
         
-        # 3. Generate embeddings and store in Qdrant
-        points = []
-        for i, node in enumerate(nodes):
-            text = node.text
-            # Skip empty chunks
-            if not text.strip():
-                continue
-                
-            response = ollama_client.embeddings(model=EMBED_MODEL, prompt=text)
-            embedding = response['embedding']
-            
-            doc_id = str(uuid.uuid4())
-            points.append(
-                qdrant_models.PointStruct(
-                    id=doc_id,
-                    vector=embedding,
-                    payload={
-                        "text": text,
-                        "filename": file.filename,
-                        "chunk_index": i,
-                        "metadata": node.metadata
-                    }
-                )
-            )
-
-        if points:
-            qdrant_client.upsert(
-                collection_name=COLLECTION_NAME,
-                points=points
-            )
-            
+        # Trigger our advanced pipeline!
+        logger.info(f"Triggering multimodal ingestion for: {file.filename}")
+        result = run_ingestion(pdf_file=tmp_path, qdrant_client=qdrant_client)
+        
         # Clean up temp file
-        os.remove(tmp_path)
-        
-        return {"status": "success", "chunks_created": len(points), "filename": file.filename}
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+            
+        if result.get("status") == "success":
+            return {
+                "status": "success", 
+                "chunks_created": result.get("total_chunks", 0), 
+                "filename": file.filename,
+                "message": "Multimodal ingestion complete (Images + OCR + Text)"
+            }
+        else:
+            raise Exception(result.get("reason", "Unknown pipeline error"))
+
     except Exception as e:
         logger.error(f"Upload failed: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))

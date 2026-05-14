@@ -90,8 +90,9 @@ class ImageIntelligence:
                 logger.error(f"OCR failed for image {idx}: {e}")
 
         # 2. Vision AI (runs on larger downscaled image for better detail)
+        # Pass OCR text to help the AI be more precise
         small_img = self._downscale(pil_img, max_px=768)
-        description = self._get_vision_description(small_img)
+        description = self._get_vision_description(small_img, ocr_text=ocr_text)
 
         # 3. Combine
         combined_text = f"Image from page {page_no}. Description: {description}"
@@ -105,15 +106,17 @@ class ImageIntelligence:
             "combined_text": combined_text
         }
 
-    def _get_vision_description(self, pil_img: Image.Image) -> str:
+    def _get_vision_description(self, pil_img: Image.Image, ocr_text: str = "") -> str:
         """
-        Calls Ollama Vision model to describe the image.
-        Image should already be downscaled before calling this.
+        Calls Ollama Vision model to describe the image, aided by OCR context.
         """
         try:
             buffered = io.BytesIO()
             pil_img.save(buffered, format="PNG")
             img_bytes = buffered.getvalue()
+
+            # Add OCR context if available
+            context_snippet = f"\n\nCONTEXT (Extracted Text from Image):\n{ocr_text}" if ocr_text else ""
 
             response = ollama.generate(
                 model=VISION_MODEL,
@@ -122,31 +125,59 @@ class ImageIntelligence:
                     "Identify its type (e.g., architecture diagram, flowchart, chart, table). "
                     "Describe the key components, technical labels, and how they relate. "
                     "Explain the core technical information being communicated."
+                    f"{context_snippet}"
                 ),
                 images=[img_bytes],
                 stream=False,
-                options={"num_predict": 512}  # Allow more detailed output
+                options={"num_predict": 512}
             )
             return response.get("response", "No description generated.")
         except Exception as e:
             logger.error(f"Vision AI failed: {e}")
             return "Error generating AI description."
 
-    def append_images_to_markdown(self, markdown: str, processed_images: List[Dict[str, Any]]) -> str:
+    def inject_images_into_markdown(self, markdown: str, processed_images: List[Dict[str, Any]]) -> str:
         """
-        Appends image references and descriptions to the end of the markdown.
+        Replaces <!-- image --> tags with the Vision AI descriptions inline.
+        Appends table descriptions at the end (or leaves them as markdown tables).
         """
+        import re
+        
         if not processed_images:
             return markdown
 
-        appendix = "\n\n--- \n## Image Intelligence\n"
-        for img in processed_images:
-            # Relative path for the markdown link
-            rel_path = Path(img["path"]).relative_to(self.output_base.parent.parent)
-            appendix += f"\n### Image {img['index']} (Page {img['page']})\n"
-            appendix += f"![{img['description']}]({rel_path})\n\n"
-            appendix += f"**AI Description:** {img['description']}\n"
-            if img["ocr_text"]:
-                appendix += f"\n**Extracted Text:**\n```\n{img['ocr_text']}\n```\n"
-
-        return markdown + appendix
+        # Split images into pictures and tables
+        pictures = [img for img in processed_images if str(img["index"]).startswith("pic_")]
+        tables = [img for img in processed_images if str(img["index"]).startswith("tab_")]
+        
+        # Sort pictures by their original index (e.g. pic_0, pic_1)
+        pictures.sort(key=lambda x: int(str(x["index"]).split("_")[1]))
+        
+        # Replace <!-- image --> sequentially
+        def repl(match):
+            if pictures:
+                img = pictures.pop(0)
+                rel_path = Path(img["path"]).relative_to(self.output_base.parent.parent)
+                injection = f"\n\n**[Image {img['index']} (Page {img['page']})]**\n"
+                injection += f"![{img['index']}]({rel_path})\n\n"
+                injection += f"**AI Description:**\n{img['description']}\n"
+                if img["ocr_text"]:
+                    injection += f"\n**Extracted Text:**\n```\n{img['ocr_text']}\n```\n"
+                return injection
+            return match.group(0) # No more pictures to inject, leave the tag
+            
+        # Docling usually outputs <!-- image -->
+        markdown = re.sub(r'<!-- image -->', repl, markdown)
+        
+        # For tables, we just append them as an appendix
+        if tables:
+            markdown += "\n\n--- \n## Complex Table AI Analysis\n"
+            for img in tables:
+                rel_path = Path(img["path"]).relative_to(self.output_base.parent.parent)
+                markdown += f"\n### Table {img['index']} (Page {img['page']})\n"
+                markdown += f"![{img['index']}]({rel_path})\n\n"
+                markdown += f"**AI Description:**\n{img['description']}\n"
+                if img["ocr_text"]:
+                    markdown += f"\n**Extracted Text:**\n```\n{img['ocr_text']}\n```\n"
+                    
+        return markdown

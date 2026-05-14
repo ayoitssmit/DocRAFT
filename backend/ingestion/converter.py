@@ -36,18 +36,25 @@ class DoclingConverter:
         if device == "cuda":
             print(f"[INFO] GPU Model detected: {torch.cuda.get_device_name(0)}")
         
-        # Configure pipeline for GPU/CUDA and OCR
+        # Configure pipeline for memory efficiency
         pipeline_options = PdfPipelineOptions()
         pipeline_options.do_ocr = True
         pipeline_options.do_table_structure = True
         
-        # Explicitly enable image extraction
-        pipeline_options.images_scale = 2.0  # Higher resolution for better OCR/Vision
+        # Reduced scale to save VRAM on dense PDFs
+        pipeline_options.images_scale = 1.5 
         pipeline_options.generate_picture_images = True
+        pipeline_options.generate_page_images = True  # Required to crop tables as images
         
-        # Set accelerator options
+        # Disable thresholds to capture all bitmap elements
+        try:
+            if hasattr(pipeline_options.ocr_options, 'bitmap_area_threshold'):
+                pipeline_options.ocr_options.bitmap_area_threshold = 0.0
+        except Exception:
+            pass
+        # Set accelerator options with slightly fewer threads to stabilize memory
         pipeline_options.accelerator_options = AcceleratorOptions(
-            num_threads=8, device=self.device
+            num_threads=4, device=self.device
         )
 
         self.converter = DocumentConverter(
@@ -56,7 +63,7 @@ class DoclingConverter:
             }
         )
         self.persist_markdown = persist_markdown
-        print(f"[SUCCESS] Docling initialized")
+        print(f"[SUCCESS] Docling initialized (Memory-optimized)")
 
     def convert_pdf(self, pdf_path: str | Path) -> dict:
         """
@@ -89,12 +96,26 @@ class DoclingConverter:
                     # Capture page number (prov is a list of provenance entries)
                     page_no = picture.prov[0].page_no if picture.prov else 0
                     images.append({
-                        "index": idx,
+                        "index": f"pic_{idx}",
                         "image": image_data,  # PIL Image
                         "page": page_no,
                     })
             except Exception as e:
-                logger.warning(f"Failed to extract image {idx} from {pdf_path.name}: {e}")
+                logger.warning(f"Failed to extract picture {idx} from {pdf_path.name}: {e}")
+
+        # Extract tables as images (since many technical diagrams are parsed as tables)
+        for idx, table in enumerate(result.document.tables):
+            try:
+                image_data = table.get_image(result.document)
+                if image_data:
+                    page_no = table.prov[0].page_no if table.prov else 0
+                    images.append({
+                        "index": f"tab_{idx}",
+                        "image": image_data,
+                        "page": page_no,
+                    })
+            except Exception as e:
+                logger.warning(f"Failed to extract table {idx} from {pdf_path.name}: {e}")
 
         print(f"[SUCCESS] Conversion complete ({len(markdown)} characters, {len(images)} images found)")
         logger.info(

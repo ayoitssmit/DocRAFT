@@ -11,6 +11,7 @@ import argparse
 import logging
 import sys
 import uuid
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -37,6 +38,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def clean_markdown(md_text: str) -> str:
+    """
+    Strips out noisy sections like 'Table of Contents' and 'List of Figures'.
+    Also removes common page headers/footers.
+    """
+    # Remove Table of Contents
+    md_text = re.sub(r'(?i)(?:##|#)\s*(?:Table of Contents).*?(?=(?:##|#) |\Z)', '', md_text, flags=re.DOTALL)
+    
+    # Remove List of Figures / Tables
+    md_text = re.sub(r'(?i)(?:##|#)\s*(?:List of Figures|List of Tables).*?(?=(?:##|#) |\Z)', '', md_text, flags=re.DOTALL)
+    
+    return md_text
+
 
 def _init_collection(
     qdrant: QdrantClient, collection_name: str, vector_size: int
@@ -55,13 +69,18 @@ def _init_collection(
     logger.info(f"Created collection '{collection_name}' (dim={vector_size})")
 
 
-def run_ingestion(pdf_dir: str | Path | None = None, pdf_file: str | Path | None = None) -> dict:
+def run_ingestion(
+    pdf_dir: str | Path | None = None, 
+    pdf_file: str | Path | None = None,
+    qdrant_client: QdrantClient | None = None
+) -> dict:
     """
     Full ingestion pipeline: PDF -> Markdown -> Chunks -> Embeddings -> Qdrant.
 
     Args:
         pdf_dir: Path to directory containing PDFs.
         pdf_file: Path to a specific PDF file.
+        qdrant_client: Optional existing QdrantClient instance (to avoid file lock).
 
     Returns:
         Summary dict with stats about the ingestion run.
@@ -99,12 +118,14 @@ def run_ingestion(pdf_dir: str | Path | None = None, pdf_file: str | Path | None
         logger.error(f"No PDFs found in {pdf_dir}. Aborting.")
         return {"status": "error", "reason": "no_pdfs_found"}
 
-    # ── Step 1.5: Image Extraction (Fast) ────────────────────────────────
+    # ── Step 1.5: Image Extraction & Intelligence ────────────────────────
     print("\n" + "="*30)
-    print("STEP 1.5: Image Extraction")
+    print("STEP 1.5: Image Extraction & Intelligence")
     print("="*30)
     from .image_processor import ImageIntelligence
     img_intel = ImageIntelligence()
+    
+    image_points_payloads = []
     
     for doc in converted_docs:
         if "images" in doc and doc["images"]:
@@ -113,6 +134,39 @@ def run_ingestion(pdf_dir: str | Path | None = None, pdf_file: str | Path | None
             doc["image_metadata"] = saved_meta
         else:
             doc["image_metadata"] = []
+            
+    total_images = sum(len(doc.get("image_metadata", [])) for doc in converted_docs)
+    if total_images > 0:
+        print(f"\n[AI] Analyzing {total_images} images with Vision AI and OCR...")
+        for doc in converted_docs:
+            processed_for_doc = []
+            for i, img_info in enumerate(doc.get("image_metadata", [])):
+                print(f"  [Thinking] Analyzing Image {i+1}/{len(doc['image_metadata'])} from {doc['filename']}...")
+                
+                # RUN SLOW ANALYSIS
+                enriched_img = img_intel.analyze_image(img_info)
+                processed_for_doc.append(enriched_img)
+
+                # Store for embedding later
+                image_points_payloads.append({
+                    "combined_text": enriched_img["combined_text"],
+                    "source_file": doc["filename"],
+                    "image_path": enriched_img["path"],
+                    "page_no": enriched_img["page"],
+                    "description": enriched_img["description"],
+                })
+            
+            # Update Markdown and re-persist with descriptions
+            doc["markdown"] = img_intel.inject_images_into_markdown(doc["markdown"], processed_for_doc)
+            converter._persist(Path(doc["filename"]).stem, doc["markdown"])
+
+    # ── Step 1.8: Clean Markdown ─────────────────────────────────────────
+    print("\n" + "="*30)
+    print("STEP 1.8: Markdown Noise Cleaning")
+    print("="*30)
+    logger.info("Cleaning markdown to remove Table of Contents and List of Figures...")
+    for doc in converted_docs:
+        doc["markdown"] = clean_markdown(doc["markdown"])
 
     # ── Step 2: Chunk Markdown ───────────────────────────────────────────
     print("\n" + "="*30)
@@ -139,9 +193,9 @@ def run_ingestion(pdf_dir: str | Path | None = None, pdf_file: str | Path | None
 
     # ── Step 3: Generate Embeddings & Qdrant Points ──────────────────────
     print("\n" + "="*30)
-    print("STEP 3: Vector Embedding & AI Analysis")
+    print("STEP 3: Vector Embedding")
     print("="*30)
-    logger.info("STEP 3: Generating embeddings and running Vision AI")
+    logger.info("STEP 3: Generating embeddings...")
     ollama_client = Client(host=OLLAMA_HOST)
 
     # Auto-detect vector dimensions
@@ -177,40 +231,30 @@ def run_ingestion(pdf_dir: str | Path | None = None, pdf_file: str | Path | None
             logger.error(f"Snippet: {chunk['text'][:100]}...")
             continue
 
-    # 3.2: Image Intelligence (Slow - One by One)
-    total_images = sum(len(doc.get("image_metadata", [])) for doc in converted_docs)
-    if total_images > 0:
-        print(f"\n[AI] Analyzing {total_images} images with Vision AI and OCR...")
-        for doc in converted_docs:
-            processed_for_doc = []
-            for i, img_info in enumerate(doc.get("image_metadata", [])):
-                print(f"  [Thinking] Analyzing Image {i+1}/{len(doc['image_metadata'])} from {doc['filename']}...")
-                
-                # RUN SLOW ANALYSIS
-                enriched_img = img_intel.analyze_image(img_info)
-                processed_for_doc.append(enriched_img)
-
-                # Embed the "combined_text"
-                response = ollama_client.embeddings(model=EMBED_MODEL, prompt=enriched_img["combined_text"])
+    # 3.2: Embed standalone Image Descriptions
+    if image_points_payloads:
+        logger.info(f"Embedding {len(image_points_payloads)} standalone image descriptions...")
+        for payload in image_points_payloads:
+            try:
+                response = ollama_client.embeddings(model=EMBED_MODEL, prompt=payload["combined_text"])
                 points.append(
                     models.PointStruct(
                         id=str(uuid.uuid4()),
                         vector=response["embedding"],
                         payload={
-                            "text": enriched_img["combined_text"],
-                            "source_file": doc["filename"],
+                            "text": payload["combined_text"],
+                            "source_file": payload["source_file"],
                             "content_type": "image",
-                            "image_path": enriched_img["path"],
-                            "page_no": enriched_img["page"],
-                            "description": enriched_img["description"],
+                            "image_path": payload["image_path"],
+                            "page_no": payload["page_no"],
+                            "description": payload["description"],
                             "ingested_at": datetime.now(timezone.utc).isoformat(),
                         },
                     )
                 )
-            
-            # Update Markdown and re-persist with descriptions
-            doc["markdown"] = img_intel.append_images_to_markdown(doc["markdown"], processed_for_doc)
-            converter._persist(Path(doc["filename"]).stem, doc["markdown"])
+            except Exception as e:
+                logger.error(f"Failed to embed image description: {e}")
+                continue
 
     if not points:
         logger.error("No points generated. Aborting.")
@@ -221,7 +265,13 @@ def run_ingestion(pdf_dir: str | Path | None = None, pdf_file: str | Path | None
     print("STEP 4: Qdrant Storage")
     print("="*30)
     logger.info(f"STEP 4: Upserting {len(points)} total points to Qdrant")
-    qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+    
+    if qdrant_client:
+        qdrant = qdrant_client
+    else:
+        # Fallback to local mode if no client provided
+        qdrant = QdrantClient(path="local_qdrant")
+    
     _init_collection(qdrant, COLLECTION_NAME, vector_size)
 
     # Batch upsert in groups of 100

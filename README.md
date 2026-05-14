@@ -127,11 +127,14 @@ DocRAFT/
 
 ## API Endpoints
 
-| Method | Path      | Description          |
-| ------ | --------- | -------------------- |
-| GET    | `/`       | Service info         |
-| GET    | `/health` | Liveness probe       |
-| GET    | `/docs`   | Swagger UI (auto)    |
+| Method | Path         | Description                                       |
+| ------ | ------------ | ------------------------------------------------- |
+| GET    | `/`          | Service info                                      |
+| GET    | `/health`    | Liveness probe                                    |
+| GET    | `/docs`      | Swagger UI (auto)                                 |
+| POST   | `/upload`    | Upload text file, generate embeddings & store     |
+| POST   | `/query`     | Perform semantic search over vector database      |
+| GET    | `/documents` | Retrieve list of all uploaded documents           |
 
 ---
 

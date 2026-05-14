@@ -8,7 +8,7 @@
 ## 1. Project Identity
 
 - **Name**: DocRAFT (Document Retrieval-Augmented Fine-Tuning)
-- **Tagline**: Enterprise-Grade RAFT Agent for intelligent document processing and knowledge extraction at scale.
+- **MAIN GOAL**: An autonomous AI agent that ingests complex technical documentation (PDFs, Markdown,server manuals) and delivers fact-grounded answers, auto-generated deployment scripts (Bash/Python), and structured troubleshooting summaries — with zero hallucination and full local privacy.
 - **Repository**: `https://github.com/ayoitssmit/DocRAFT`
 - **Default branch**: `main`
 - **License**: Proprietary (team project)

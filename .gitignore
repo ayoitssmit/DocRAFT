@@ -34,10 +34,11 @@ Thumbs.db
 *.log
 docker-compose.override.yml
 .docker/
-/qdrant_storage/
-/qdrant/storage/
-/data/pdfs/
-/data/markdown/
-/data/images/
+qdrant_storage/
+qdrant/storage/
+local_qdrant/
+data/pdfs/
+data/markdown/
+data/images/
 frontend/AGENTS.md
 frontend/CLAUDE.md

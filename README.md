@@ -2,140 +2,128 @@
 
 **Enterprise-Grade RAFT (Retrieval-Augmented Fine-Tuning) Agent.**
 
-> Intelligent document processing and knowledge extraction at scale.
+Intelligent document processing, multimodal knowledge extraction, and semantic search at scale.
 
 ---
 
-## Tech Stack
+## 🚀 Technical Highlights
 
-| Layer      | Technology                  | Purpose                       |
-| ---------- | --------------------------- | ----------------------------- |
-| Frontend   | Next.js 16 + Tailwind CSS 4 | App Router, TypeScript        |
-| Backend    | FastAPI + Uvicorn            | Async Python API              |
-| Vector DB  | Qdrant                       | Embedding storage & retrieval |
-| LLM Engine | Ollama (local)               | Inference & embeddings        |
-| Infra      | Docker Compose               | Development orchestration     |
+- **Multimodal Ingestion**: High-fidelity PDF-to-Markdown conversion using Docling.
+- **Vision Intelligence**: Automated diagram and chart analysis via Ollama Vision models (Granite 3.2).
+- **OCR-Augmented Retrieval**: Integrated RapidOCR for extracting technical labels from images.
+- **Local-First Architecture**: Run everything on your own hardware using Ollama and local Qdrant storage.
+- **GPU Accelerated**: Optimized for NVIDIA hardware with CUDA-enabled Torch integration.
 
-## Quick Start
+---
 
-### Prerequisites
+## 🛠️ Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (with Compose v2)
-- [Ollama](https://ollama.ai/) running locally
+1.  **Python 3.12**: (Required for stability with Docling/LlamaIndex).
+2.  **NVIDIA GPU**: (Recommended for Vision AI and Ingestion speed).
+3.  **Ollama**: [Download here](https://ollama.ai/).
 
-#### Ollama Setup
-To use the local AI features, you must pull the following models:
-
-```bash
-# Core inference model
+### 🧠 AI Model Setup
+Pull the required models to your local Ollama instance:
+```powershell
+# Technical Chat & Logic
 ollama pull qwen2.5-coder:7b
 
-# Embedding model
+# High-Speed Vector Embeddings
 ollama pull nomic-embed-text
-```
 
-### 1 — Clone & configure
-
-```bash
-git clone <repo-url>
-cd DocRAFT
-cp infra/.env.example .env        # then edit values as needed
-```
-
-### 2 — Run with Docker Compose (recommended)
-
-```bash
-docker compose -f infra/docker-compose.yml up --build
-```
-
-| Service  | URL                        |
-| -------- | -------------------------- |
-| Frontend | http://localhost:3000       |
-| Backend  | http://localhost:8000       |
-| API Docs | http://localhost:8000/docs  |
-| Qdrant   | http://localhost:6333       |
-
-### 3 — Run services individually (without Docker)
-
-**Backend:**
-
-```bash
-cd backend
-python -m venv .venv && .venv\Scripts\activate   # Windows
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-**Frontend:**
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-## Ingestion Pipeline (Multimodal)
-
-DocRAFT includes a sophisticated multimodal ingestion pipeline that converts PDFs to Markdown, extracts images, and uses Vision AI to generate technical descriptions for architectural diagrams and charts.
-
-### 1 — Prerequisites
-Ensure you have the vision model pulled in Ollama:
-```bash
+# Multimodal Vision (Architectural Diagrams)
 ollama pull granite3.2-vision:2b
 ```
 
-### 2 — Running the Pipeline
-The pipeline is located in `backend/ingestion`. You can process an entire directory of PDFs or a single file:
+---
 
-**Single File:**
-```bash
-python -m backend.ingestion.pipeline --pdf-file data/pdfs/qlora.pdf
+## 💻 Local Setup (Windows)
+
+### 1 — Clone & Environment
+```powershell
+git clone https://github.com/ayoitssmit/DocRAFT
+cd DocRAFT
+cp infra/.env.example .env
 ```
 
-**Directory:**
-```bash
-python -m backend.ingestion.pipeline --pdf-dir data/pdfs/
+### 2 — Configure `.env`
+For local development (without Docker), update your `.env` to use the hardcoded IP:
+```env
+OLLAMA_HOST=http://127.0.0.1:11434
+QDRANT_HOST=127.0.0.1
+ENVIRONMENT=development
 ```
 
-The pipeline will:
-1. Extract text and images from the PDF.
-2. Generate high-fidelity technical descriptions for images using Vision AI.
-3. Perform semantic chunking.
-4. Embed both text and image intelligence into Qdrant.
-5. Save enriched Markdown to `data/markdown/`.
+### 3 — Install Dependencies
 
-## Project Structure
+Choose the path that matches your hardware:
 
-```
-DocRAFT/
-├── backend/                 # FastAPI application
-│   ├── main.py              # App entry point + /health endpoint
-│   ├── requirements.txt     # Python dependencies
-│   ├── Dockerfile           # Backend container
-│   └── retrieval/           # Retrieval pipeline (tests)
-├── frontend/                # Next.js application
-│   ├── app/                 # App Router pages
-│   ├── Dockerfile           # Frontend container
-│   └── package.json
-├── infra/                   # Infrastructure
-│   ├── docker-compose.yml   # Development stack orchestration
-│   └── .env.example         # Environment variable template
-├── data/                    # Sample documents & datasets
-├── .env                     # Local environment config (git-ignored)
-└── README.md
+#### **Option A: GPU (NVIDIA CUDA)** — *Recommended for Vision AI*
+```powershell
+# Install Core Requirements
+pip install -r backend/requirements.txt
+
+# Install CUDA-Enabled Torch (Version 12.4)
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
 
-## API Endpoints
+#### **Option B: CPU (Universal)** — *Slower for Images/Vision*
+```powershell
+# Install Core Requirements
+pip install -r backend/requirements.txt
 
-| Method | Path         | Description                                       |
-| ------ | ------------ | ------------------------------------------------- |
-| GET    | `/`          | Service info                                      |
-| GET    | `/health`    | Liveness probe                                    |
-| GET    | `/docs`      | Swagger UI (auto)                                 |
-| POST   | `/upload`    | Upload text file, generate embeddings & store     |
-| POST   | `/query`     | Perform semantic search over vector database      |
-| GET    | `/documents` | Retrieve list of all uploaded documents           |
+# Standard Torch Installation
+pip install torch torchvision torchaudio
+```
+
+> [!NOTE]
+> **Performance Note:** Vision AI analysis (diagram extraction) can take 5-10x longer on a CPU. If you are on a CPU-only machine, consider using smaller vision models in your `.env`.
+
+> [!IMPORTANT]
+> **Network Tip:** If `pip` or `uv` hangs on your machine, try disabling **IPv6** in your Windows Network Settings. DocRAFT is optimized for IPv4 connectivity.
 
 ---
 
-*Week 1 — Project Scaffold (`feature/project-scaffold`)*
+## 🏗️ Running the System
+
+### Option A: The API Server (Recommended)
+This starts the FastAPI backend, which handles uploads and queries.
+```powershell
+cd backend
+..\.venv\Scripts\python.exe -m uvicorn main:app --reload
+```
+- **API Docs**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- **Upload Endpoints**: Use `/upload` to process PDFs with full Vision AI intelligence.
+
+### Option B: The CLI Pipeline
+Process a folder of documents directly from the terminal:
+```powershell
+# Process a single file
+.\.venv\Scripts\python.exe -m backend.ingestion.pipeline --pdf-file data/pdfs/manual.pdf
+
+# Process a whole folder
+.\.venv\Scripts\python.exe -m backend.ingestion.pipeline --pdf-dir data/pdfs/
+```
+
+---
+
+## 📂 Project Structure
+
+- `backend/ingestion/`: Multimodal PDF processing (OCR + Vision).
+- `backend/retrieval/`: Search and RAG logic.
+- `data/markdown/`: Enriched document outputs for debugging.
+- `local_qdrant/`: Local vector database storage (no Docker required).
+
+---
+
+## 📅 Roadmap
+
+- [x] Multimodal Ingestion Pipeline (Docling + Vision)
+- [x] GPU Acceleration (CUDA)
+- [x] FastAPI Integration
+- [ ] Next.js Chat Interface (Week 3)
+- [ ] Agentic Re-Query Logic (Week 7)
+
+---
+
+*Built by Smit Shah & Jalpan Vyas*

@@ -2,7 +2,7 @@
 
 **Enterprise-Grade RAFT (Retrieval-Augmented Fine-Tuning) Agent.**
 
-Intelligent document processing, multimodal knowledge extraction, and semantic search at scale.
+> Intelligent document processing, multimodal knowledge extraction, and semantic search at scale — powered by Docling, LlamaIndex, Qdrant, and Ollama.
 
 ---
 
@@ -13,6 +13,36 @@ Intelligent document processing, multimodal knowledge extraction, and semantic s
 - **OCR-Augmented Retrieval**: Integrated RapidOCR for extracting technical labels from images.
 - **Local-First Architecture**: Run everything on your own hardware using Ollama and local Qdrant storage.
 - **GPU Accelerated**: Optimized for NVIDIA hardware with CUDA-enabled Torch integration.
+
+---
+
+## How It Works
+
+DocRAFT implements a full **Retrieval-Augmented Generation (RAG)** ingestion and query pipeline:
+
+```
+PDF Upload
+    │
+    ▼
+Docling DocumentConverter
+    │  Layout-aware parsing, table extraction, image annotation
+    ▼
+LlamaIndex MarkdownNodeParser
+    │  Heading-aware chunking → N semantic chunks with metadata
+    ▼
+Ollama nomic-embed-text
+    │  Each chunk → 768-dimensional dense vector embedding
+    ▼
+Qdrant Vector Database
+    │  Chunks stored as searchable points with full payload
+    ▼
+/query endpoint
+    │  Question → embedding → cosine similarity search → top-K chunks
+    ▼
+Ranked Results with scores
+```
+
+Each uploaded PDF is broken into **semantic chunks** (not a single blob), meaning retrieval is precise and context-aware. A complex 50-page document might produce 30–50 individually searchable chunks.
 
 ---
 
@@ -37,24 +67,16 @@ ollama pull granite3.2-vision:2b
 
 ---
 
-## 💻 Local Setup (Windows)
+## 💻 Setup & Installation
 
 ### 1 — Clone & Environment
 ```powershell
-git clone https://github.com/ayoitssmit/DocRAFT
+git clone https://github.com/ayoitssmit/DocRAFT.git
 cd DocRAFT
 cp infra/.env.example .env
 ```
 
-### 2 — Configure `.env`
-For local development (without Docker), update your `.env` to use the hardcoded IP:
-```env
-OLLAMA_HOST=http://127.0.0.1:11434
-QDRANT_HOST=127.0.0.1
-ENVIRONMENT=development
-```
-
-### 3 — Install Dependencies
+### 2 — Install Dependencies
 
 Choose the path that matches your hardware:
 
@@ -77,32 +99,24 @@ pip install torch torchvision torchaudio
 ```
 
 > [!NOTE]
-> **Performance Note:** Vision AI analysis (diagram extraction) can take 5-10x longer on a CPU. If you are on a CPU-only machine, consider using smaller vision models in your `.env`.
-
-> [!IMPORTANT]
-> **Network Tip:** If `pip` or `uv` hangs on your machine, try disabling **IPv6** in your Windows Network Settings. DocRAFT is optimized for IPv4 connectivity.
+> **Performance Note:** Vision AI analysis (diagram extraction) can take 5-10x longer on a CPU.
 
 ---
 
 ## 🏗️ Running the System
 
-### Option A: The API Server (Recommended)
-This starts the FastAPI backend, which handles uploads and queries.
+### Option A: Local Development (Recommended)
+This starts the FastAPI backend in local-disk mode (no Docker required for Qdrant).
 ```powershell
 cd backend
 ..\.venv\Scripts\python.exe -m uvicorn main:app --reload
 ```
 - **API Docs**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- **Upload Endpoints**: Use `/upload` to process PDFs with full Vision AI intelligence.
 
-### Option B: The CLI Pipeline
-Process a folder of documents directly from the terminal:
+### Option B: Docker Compose
+Full stack orchestration (Backend + Frontend + Vector DB).
 ```powershell
-# Process a single file
-.\.venv\Scripts\python.exe -m backend.ingestion.pipeline --pdf-file data/pdfs/manual.pdf
-
-# Process a whole folder
-.\.venv\Scripts\python.exe -m backend.ingestion.pipeline --pdf-dir data/pdfs/
+docker compose -f infra/docker-compose.yml up --build
 ```
 
 ---
@@ -111,18 +125,27 @@ Process a folder of documents directly from the terminal:
 
 - `backend/ingestion/`: Multimodal PDF processing (OCR + Vision).
 - `backend/retrieval/`: Search and RAG logic.
+- `frontend/`: Next.js 16 + Tailwind CSS 4 Application.
 - `data/markdown/`: Enriched document outputs for debugging.
-- `local_qdrant/`: Local vector database storage (no Docker required).
+- `local_qdrant/`: Local vector database storage.
 
 ---
 
-## 📅 Roadmap
+## 📡 API Endpoints
 
-- [x] Multimodal Ingestion Pipeline (Docling + Vision)
-- [x] GPU Acceleration (CUDA)
-- [x] FastAPI Integration
-- [ ] Next.js Chat Interface (Week 3)
-- [ ] Agentic Re-Query Logic (Week 7)
+| Method | Path         | Description                                       |
+| ------ | ------------ | ------------------------------------------------- |
+| GET    | `/health`    | Liveness probe (used by frontend status card)     |
+| POST   | `/upload`    | Process PDF with full Multimodal AI intelligence  |
+| POST   | `/query`     | Semantic search over vector database              |
+| GET    | `/documents` | List all stored document chunks                   |
+
+### Example: Query the Knowledge Base
+```bash
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Explain the system architecture", "limit": 3}'
+```
 
 ---
 

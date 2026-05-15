@@ -25,7 +25,9 @@
 
 DocRAFT is an enterprise-grade **Retrieval-Augmented Generation (RAG)** system designed for high-fidelity document ingestion and intelligent semantic search. It combines layout-aware PDF parsing, vision-based diagram analysis, OCR-augmented text extraction, and dense vector embeddings into a unified, queryable knowledge base — all running locally on your own hardware.
 
-Unlike naive document chunking systems that split by character count, DocRAFT performs **heading-aware semantic chunking** via LlamaIndex, preserving document structure and enabling precise, context-aware retrieval. A 50-page technical document is transformed into 30–50 individually searchable semantic units, each carrying rich metadata.
+Unlike naive document chunking systems that split by character count, DocRAFT performs **heading-aware semantic chunking** via LlamaIndex, preserving document structure and enabling precise, context-aware retrieval. A 50-page technical document is transformed into 30–50 individually searchable semantic units, each carrying rich metadata including source filename, chunk index, page context, and content type.
+
+PDF ingestion is handled **asynchronously** via FastAPI background tasks. When you upload a document, the API immediately returns a Task ID and the heavy pipeline runs in the background — so the frontend stays responsive even for large, image-heavy PDFs. Task status can be polled at any time via the `/status/{task_id}` endpoint.
 
 ---
 
@@ -34,12 +36,13 @@ Unlike naive document chunking systems that split by character count, DocRAFT pe
 | Capability | Technology |
 |---|---|
 | Layout-aware PDF parsing | Docling `DocumentConverter` |
-| Semantic chunking | LlamaIndex `MarkdownNodeParser` |
+| Semantic chunking | LlamaIndex `MarkdownNodeParser` + `SentenceSplitter` |
 | Dense vector embeddings | Ollama `nomic-embed-text` (768-dim) |
 | Vector storage & retrieval | Qdrant (local disk or Docker) |
 | Vision / diagram analysis | Ollama `granite3.2-vision:2b` |
-| OCR for technical labels | RapidOCR |
+| OCR for technical labels | RapidOCR (ONNX runtime) |
 | LLM reasoning | Ollama `qwen2.5-coder:7b` |
+| Async task processing | FastAPI `BackgroundTasks` |
 | API layer | FastAPI + Uvicorn |
 | Frontend | Next.js 16 + Tailwind CSS 4 |
 | GPU acceleration | CUDA 12.4 via PyTorch |
@@ -49,6 +52,7 @@ Unlike naive document chunking systems that split by character count, DocRAFT pe
 - **Multimodal Ingestion** — Extracts text, tables, figures, and embedded diagrams from PDFs with high structural fidelity.
 - **Vision Intelligence** — Automatically describes architectural diagrams and charts using Ollama Vision models, making visual content searchable.
 - **OCR-Augmented Retrieval** — RapidOCR extracts technical labels and annotations from image regions, enriching the knowledge base beyond raw PDF text.
+- **Non-Blocking Uploads** — The `/upload` endpoint returns immediately with a task ID. Ingestion runs in the background, allowing multiple documents to be queued without blocking the API.
 - **Local-First Architecture** — No external API calls. All inference, embedding, and storage runs on your own hardware via Ollama and local Qdrant.
 - **GPU Accelerated** — Optimized for NVIDIA hardware with CUDA-enabled PyTorch for fast ingestion and vision inference.
 
@@ -59,41 +63,60 @@ Unlike naive document chunking systems that split by character count, DocRAFT pe
 DocRAFT implements a multi-stage ingestion and retrieval pipeline:
 
 ```
-PDF Upload
+PDF Upload (POST /upload)
     │
-    ▼
+    ▼ Returns task_id immediately
+┌─────────────────────────────────────┐
+│     FastAPI BackgroundTasks Queue    │
+│  Non-blocking · Async processing    │
+└─────────────────────────────────────┘
+    │
+    ▼ (Background Worker)
 ┌─────────────────────────────────────┐
 │        Docling DocumentConverter     │
 │  Layout parsing · Table extraction  │
-│  Image annotation · Structure map   │
+│  Image extraction · Structure map   │
+│  OCR enabled (RapidOCR via ONNX)    │
+└─────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────┐
+│      Image Intelligence Layer        │
+│  Pass 1: Save all images to disk    │
+│  Pass 2 (per image):                │
+│   ├─ RapidOCR → label text          │
+│   └─ Granite Vision → AI caption    │
+│  Inject descriptions into Markdown  │
+└─────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────┐
+│       Markdown Noise Cleaning        │
+│  Remove Table of Contents           │
+│  Remove List of Figures/Tables      │
 └─────────────────────────────────────┘
     │
     ▼
 ┌─────────────────────────────────────┐
 │     LlamaIndex MarkdownNodeParser   │
-│  Heading-aware chunking             │
+│  Heading-aware primary chunking     │
+│  SentenceSplitter sub-chunking      │
 │  → N semantic chunks with metadata  │
 └─────────────────────────────────────┘
-    │
-    ├──► [If chunk contains image region]
-    │         │
-    │         ▼
-    │    ┌──────────────────────────────┐
-    │    │  RapidOCR + Granite Vision   │
-    │    │  OCR labels · Diagram desc   │
-    │    │  Caption enrichment          │
-    │    └──────────────────────────────┘
     │
     ▼
 ┌─────────────────────────────────────┐
 │     Ollama nomic-embed-text          │
 │  Each chunk → 768-dim dense vector  │
+│  Image descriptions embedded too    │
 └─────────────────────────────────────┘
     │
     ▼
 ┌─────────────────────────────────────┐
 │         Qdrant Vector Database       │
 │  Points stored with full payload    │
+│  Payload: text, filename, chunk     │
+│  index, content_type, page_no       │
 │  Local disk · Cosine similarity     │
 └─────────────────────────────────────┘
     │
@@ -102,19 +125,26 @@ PDF Upload
     │
     ├─ Question → nomic-embed-text → query vector
     ├─ Cosine similarity search → top-K chunks
-    └─ Ranked results with scores returned
+    └─ Ranked results with score, text, filename, content_type
 ```
 
 ### Chunking Strategy
 
-DocRAFT does **not** chunk by token count or character limit. The `MarkdownNodeParser` from LlamaIndex splits documents at semantic heading boundaries, preserving:
+DocRAFT does **not** chunk by token count or character limit alone. The `MarkdownNodeParser` from LlamaIndex splits documents at semantic heading boundaries first, preserving:
 
 - Section context and hierarchy
 - Table integrity (tables are not split mid-row)
 - Figure-to-caption associations
 - Cross-reference metadata
 
-This means retrieval is structurally meaningful — a query about a specific subsystem will return the chunk corresponding to that section, not an arbitrary window of characters.
+A second pass using `SentenceSplitter` (512-char chunks, 64-char overlap) then sub-chunks any structural node that exceeds the safe token limit for the embedding model. This two-pass strategy ensures both structural meaning and vector model compatibility.
+
+### Image Intelligence Strategy
+
+Image analysis runs in two sequential passes to optimize performance:
+
+- **Pass 1 (fast):** All images are saved to `data/images/<document_stem>/` as PNG files without any AI processing. This ensures no images are lost if AI inference fails.
+- **Pass 2 (slow, per image):** Each saved image is analyzed with RapidOCR first (to extract technical labels and text), then passed to the Granite Vision model alongside the OCR context. The resulting description is injected back into the Markdown before chunking, making visual content semantically searchable.
 
 ---
 
@@ -122,11 +152,12 @@ This means retrieval is structurally meaningful — a query about a specific sub
 
 Before installing DocRAFT, ensure the following are available on your system:
 
-1. **Python 3.12** — Required for compatibility with Docling and LlamaIndex. Other versions are not officially supported.
+1. **Python 3.12** — Required for compatibility with Docling and LlamaIndex. Python 3.13 is **not supported** as several core AI libraries have not yet released compatible wheels.
 2. **NVIDIA GPU** — Strongly recommended. Vision AI inference (Granite 3.2) and Docling's layout model are significantly faster on GPU. CPU is supported but expect 5–10× slower ingestion for documents with images.
 3. **Ollama** — Local LLM and embedding runtime. [Download from ollama.ai](https://ollama.ai/).
 4. **Git** — For cloning the repository.
-5. **Docker** *(optional)* — Required only for the Docker Compose deployment path.
+5. **Node.js 22+** — Required for the Next.js frontend.
+6. **Docker** *(optional)* — Required only for the Docker Compose deployment path.
 
 ---
 
@@ -145,7 +176,7 @@ ollama pull nomic-embed-text
 ollama pull granite3.2-vision:2b
 ```
 
-> All three models must be available locally before starting the backend. The system will fail on startup if any model is missing from Ollama.
+> All three models must be available locally before starting the backend. The embedding pipeline and vision analysis will fail if any required model is missing from Ollama.
 
 ---
 
@@ -164,55 +195,92 @@ cd DocRAFT
 cp infra/.env.example .env
 ```
 
-Open `.env` and configure paths, model names, and Qdrant settings as needed for your environment.
+Open `.env` and configure paths, model names, and Qdrant settings as needed for your environment. The key variables are:
+
+```env
+OLLAMA_HOST=http://localhost:11434
+EMBED_MODEL=nomic-embed-text
+VISION_MODEL=granite3.2-vision:2b
+QDRANT_HOST=localhost
+QDRANT_PORT=6333
+ENVIRONMENT=development
+```
 
 ### Step 3 — Install Python Dependencies
 
-Choose the installation path that matches your hardware:
-
-#### Option A: GPU (NVIDIA CUDA) — Recommended
+> **Python 3.12 is required.** If you have multiple Python versions installed, use `py -3.12` to target the correct interpreter.
 
 ```powershell
-# Install all backend Python dependencies
-pip install -r backend/requirements.txt
+cd backend
 
-# Install CUDA-enabled PyTorch (CUDA 12.4)
+# Create a virtual environment with Python 3.12
+py -3.12 -m venv .venv
+
+# Activate it
+.\.venv\Scripts\activate
+
+# Upgrade pip first
+python -m pip install --upgrade pip
+
+# Install all backend dependencies
+pip install -r requirements.txt
+```
+
+#### Optional: NVIDIA GPU Acceleration
+
+If you have an NVIDIA GPU, install CUDA-enabled PyTorch after the above step for significantly faster document ingestion:
+
+```powershell
+# CUDA 12.4 — check https://pytorch.org/get-started/locally/ for other versions
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
 ```
 
-#### Option B: CPU (Universal)
+> **Note:** Vision AI analysis (diagram extraction and OCR) runs 5–10× slower on CPU compared to GPU. For large document sets, NVIDIA GPU + CUDA is strongly recommended.
+
+### Step 4 — Install Frontend Dependencies
 
 ```powershell
-# Install all backend Python dependencies
-pip install -r backend/requirements.txt
-
-# Install standard PyTorch (CPU-only)
-pip install torch torchvision torchaudio
+cd frontend
+npm install
 ```
-
-> **Note:** Vision AI analysis (diagram extraction and OCR) runs 5–10× slower on CPU compared to GPU. For production or large document sets, NVIDIA GPU + CUDA is strongly recommended.
 
 ---
 
 ## Running the System
 
-### Option A: Local Development (Recommended)
+### Option A: Local Development (No Docker Required)
 
-Runs the FastAPI backend in local-disk mode. Qdrant data is persisted to `local_qdrant/` on disk — no Docker required.
+When running locally with `ENVIRONMENT=development` and default `QDRANT_HOST=localhost`, the backend automatically switches to **Local Disk Mode** for Qdrant. Vector data is persisted to `backend/local_qdrant/` — no separate Qdrant service or Docker container is needed.
+
+**Terminal 1 — Backend:**
 
 ```powershell
 cd backend
-..\.venv\Scripts\python.exe -m uvicorn main:app --reload
+.\.venv\Scripts\activate
+uvicorn main:app
+```
+
+> **Important:** Do **not** use `uvicorn main:app --reload` in local disk mode. The `--reload` flag starts two processes simultaneously, both of which attempt to lock the same `local_qdrant/` folder, causing a `PermissionError`. Use the basic `uvicorn main:app` command for local development.
+
+**Terminal 2 — Frontend:**
+
+```powershell
+cd frontend
+npm run dev
 ```
 
 Once running:
 
-- **Interactive API Docs (Swagger UI):** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- **ReDoc API Docs:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+| Service | URL |
+|---|---|
+| Frontend | `http://localhost:3000` |
+| Backend API | `http://localhost:8000` |
+| Swagger UI (Interactive Docs) | `http://localhost:8000/docs` |
+| ReDoc API Reference | `http://localhost:8000/redoc` |
 
 ### Option B: Docker Compose (Full Stack)
 
-Starts the complete stack: FastAPI backend, Next.js frontend, and Qdrant vector database as containers.
+Starts the complete stack: FastAPI backend, Next.js frontend, and a networked Qdrant vector database as Docker containers. In this mode, the backend connects to Qdrant as a service (`vector-db`) rather than using local disk storage.
 
 ```powershell
 docker compose -f infra/docker-compose.yml up --build
@@ -222,6 +290,7 @@ docker compose -f infra/docker-compose.yml up --build
 |---|---|
 | FastAPI Backend | `http://localhost:8000` |
 | Next.js Frontend | `http://localhost:3000` |
+| Qdrant REST API | `http://localhost:6333` |
 | Qdrant Dashboard | `http://localhost:6333/dashboard` |
 
 ---
@@ -232,16 +301,17 @@ docker compose -f infra/docker-compose.yml up --build
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/health` | Liveness probe. Returns system status, used by the frontend status card. |
-| `POST` | `/upload` | Accepts a PDF file and runs the full multimodal ingestion pipeline (Docling → chunking → OCR/Vision → embedding → Qdrant). |
-| `POST` | `/query` | Embeds the input query and performs cosine similarity search against the vector database. Returns top-K ranked chunks with scores. |
-| `GET` | `/documents` | Lists all stored document chunks currently indexed in the vector database. |
+| `GET` | `/health` | Liveness probe. Returns system status, environment, and timestamp. Used by the frontend status indicator. |
+| `POST` | `/upload` | Accepts a PDF file, queues it for background ingestion, and immediately returns a task ID. |
+| `GET` | `/status/{task_id}` | Poll the status of a background ingestion task (queued → processing → completed / failed). |
+| `POST` | `/query` | Embeds the input query and performs cosine similarity search. Returns top-K ranked chunks with scores and metadata. |
+| `GET` | `/documents` | Lists all document chunks currently indexed in the vector database, with source filename and content preview. |
 
 ---
 
 ### `POST /upload`
 
-Upload and ingest a PDF document.
+Upload and ingest a PDF document. The endpoint returns immediately with a task ID while the pipeline runs in the background.
 
 **Request:** `multipart/form-data`
 
@@ -249,16 +319,61 @@ Upload and ingest a PDF document.
 |---|---|---|
 | `file` | `File` | The PDF file to ingest. |
 
-**Response:**
+**Response (202 Accepted):**
 
 ```json
 {
-  "status": "success",
-  "document_id": "abc123",
-  "chunks_created": 42,
-  "pages_processed": 14
+  "task_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "status": "queued",
+  "message": "Document ingestion started in background."
 }
 ```
+
+**Example (cURL):**
+
+```bash
+curl -X POST http://localhost:8000/upload \
+  -F "file=@my_document.pdf"
+```
+
+---
+
+### `GET /status/{task_id}`
+
+Poll the processing status of a previously submitted ingestion task.
+
+**Response (while processing):**
+
+```json
+{
+  "status": "processing",
+  "filename": "architecture_overview.pdf",
+  "message": "Starting pipeline..."
+}
+```
+
+**Response (on success):**
+
+```json
+{
+  "status": "completed",
+  "filename": "architecture_overview.pdf",
+  "chunks_created": 42,
+  "message": "Multimodal ingestion complete."
+}
+```
+
+**Response (on failure):**
+
+```json
+{
+  "status": "failed",
+  "filename": "architecture_overview.pdf",
+  "message": "Detailed error reason here."
+}
+```
+
+Possible status values: `queued` → `processing` → `completed` | `failed`
 
 ---
 
@@ -286,15 +401,26 @@ Perform a semantic search over the ingested knowledge base.
 {
   "results": [
     {
+      "id": "8a798507-5409-4cd8-98f2-f708e3e0f63b",
       "score": 0.921,
-      "text": "...",
-      "source_document": "architecture_overview.pdf",
-      "chunk_id": "chunk_007",
-      "metadata": { ... }
+      "text": "The system architecture comprises three core services...",
+      "filename": "architecture_overview.pdf",
+      "image_path": null,
+      "content_type": "text"
+    },
+    {
+      "id": "c3f1a2b4-...",
+      "score": 0.876,
+      "text": "Image from page 4. Description: The diagram shows...",
+      "filename": "architecture_overview.pdf",
+      "image_path": "data/images/architecture_overview/image_p4_pic_0.png",
+      "content_type": "image"
     }
   ]
 }
 ```
+
+> **Note:** The `content_type` field distinguishes text chunks (`"text"`) from image description chunks (`"image"`). Image chunks include an `image_path` pointing to the saved PNG on disk.
 
 **Example (cURL):**
 
@@ -308,18 +434,22 @@ curl -X POST http://localhost:8000/query \
 
 ### `GET /documents`
 
-Returns a list of all indexed document chunks stored in Qdrant.
+Returns a paginated list of all indexed document chunks stored in Qdrant (up to 100 per call).
 
 **Response:**
 
 ```json
 {
-  "total": 84,
   "documents": [
     {
-      "chunk_id": "chunk_001",
-      "source_document": "design_spec.pdf",
-      "preview": "This section describes..."
+      "id": "8a798507-5409-4cd8-98f2-f708e3e0f63b",
+      "filename": "architecture_overview.pdf",
+      "content_preview": "The system architecture comprises three core services..."
+    },
+    {
+      "id": "c3f1a2b4-...",
+      "filename": "design_spec.pdf",
+      "content_preview": "Image from page 4. Description: The diagram shows..."
     }
   ]
 }
@@ -331,46 +461,60 @@ Returns a list of all indexed document chunks stored in Qdrant.
 
 ```
 DocRAFT/
-├── backend/
-│   ├── main.py                  # FastAPI application entry point
-│   ├── requirements.txt         # Python dependencies
-│   ├── ingestion/               # Multimodal PDF processing pipeline
-│   │   ├── docling_parser.py    # Docling-based layout parsing & Markdown conversion
-│   │   ├── vision_analyzer.py   # Granite Vision model integration for diagrams
-│   │   └── ocr_extractor.py     # RapidOCR for technical label extraction
-│   └── retrieval/               # Search and RAG logic
-│       ├── embedder.py          # nomic-embed-text embedding via Ollama
-│       ├── vector_store.py      # Qdrant client & collection management
-│       └── query_engine.py      # Semantic search and result ranking
+├── .env                          # Local environment config (git-ignored, NEVER commit)
+├── .gitignore
+├── AGENT.md                      # AI assistant context file
+├── README.md
 │
-├── frontend/                    # Next.js 16 + Tailwind CSS 4 application
-│   ├── app/                     # App router pages and layouts
-│   └── components/              # UI components (upload, search, results)
+├── backend/                      # FastAPI application
+│   ├── main.py                   # App entry point, all route definitions
+│   ├── requirements.txt          # Python dependencies
+│   ├── Dockerfile                # python:3.12-slim based image
+│   ├── .dockerignore
+│   ├── local_qdrant/             # Auto-created local vector DB storage (git-ignored)
+│   ├── retrieval/                # Week 1 baseline tests
+│   │   ├── baseline_test.py      # Ollama + Qdrant connection test
+│   │   └── ingest_test.py        # Embedding + Qdrant upsert prototype
+│   └── ingestion/                # Multimodal PDF processing pipeline
+│       ├── __init__.py
+│       ├── config.py             # Pipeline configuration constants (paths, models, chunk sizes)
+│       ├── converter.py          # Docling PDF-to-Markdown wrapper with image extraction
+│       ├── image_processor.py    # RapidOCR + Granite Vision AI image analysis
+│       ├── chunker.py            # LlamaIndex MarkdownNodeParser + SentenceSplitter
+│       └── pipeline.py           # End-to-end orchestrator (Steps 1 → 1.5 → 1.8 → 2 → 3 → 4)
 │
-├── infra/
-│   ├── docker-compose.yml       # Full-stack container orchestration
-│   └── .env.example             # Environment variable template
+├── frontend/                     # Next.js application
+│   ├── app/                      # App Router pages and layouts
+│   ├── package.json              # Next.js 16 + React 19 + Tailwind CSS 4
+│   ├── Dockerfile
+│   └── AGENTS.md                 # Next.js-specific agent rules
 │
-├── data/
-│   └── markdown/                # Enriched Markdown outputs (for debugging ingestion)
+├── infra/                        # Infrastructure configuration
+│   ├── docker-compose.yml        # Backend + Frontend + Qdrant container orchestration
+│   └── .env.example              # Template for .env
 │
-└── local_qdrant/                # Local vector database storage (auto-created)
+└── data/                         # Documents and generated artifacts
+    ├── pdfs/                     # Raw input PDFs (git-ignored)
+    ├── markdown/                 # Converted Markdown output with injected AI descriptions (git-ignored)
+    └── images/                   # Extracted images per document (git-ignored)
 ```
 
 ---
 
 ## Performance Notes
 
-| Scenario | Ingestion Speed | Notes |
+| Scenario | Speed | Notes |
 |---|---|---|
-| Text-only PDF (no images) | Fast | Docling parsing + embedding only |
-| PDF with diagrams (GPU) | Moderate | Vision inference on GPU, ~2–5s per image |
-| PDF with diagrams (CPU) | Slow | Vision inference 5–10× slower without CUDA |
-| Large document (50+ pages) | ~30–50 chunks | Each chunk embedded and stored independently |
+| Text-only PDF (no images) | Fast | Docling parsing + chunking + embedding only |
+| PDF with diagrams (NVIDIA GPU) | Moderate | Vision inference ~2–5s per image on GPU |
+| PDF with diagrams (CPU only) | Slow | Vision inference 5–10× slower without CUDA |
+| Large document (50+ pages) | 30–60 chunks typical | Each chunk embedded and stored independently |
+| First run (model download) | One-time overhead | RapidOCR ONNX models download automatically on first use |
 
-- Embedding is performed per-chunk using `nomic-embed-text` (768 dimensions) via Ollama.  
-- Vector similarity search uses **cosine distance** in Qdrant.  
-- Local Qdrant storage is persisted to `local_qdrant/` and survives backend restarts.  
+- Embedding is performed per-chunk using `nomic-embed-text` (768 dimensions) via Ollama.
+- Vector similarity search uses **cosine distance** in Qdrant.
+- Local Qdrant storage is persisted to `backend/local_qdrant/` and survives backend restarts.
+- On first use, RapidOCR automatically downloads its ONNX model weights (~15MB) from ModelScope.
 - For large-scale deployments, switch to a networked Qdrant instance via Docker Compose.
 
 ---

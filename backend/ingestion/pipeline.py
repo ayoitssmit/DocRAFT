@@ -72,7 +72,8 @@ def _init_collection(
 def run_ingestion(
     pdf_dir: str | Path | None = None, 
     pdf_file: str | Path | None = None,
-    qdrant_client: QdrantClient | None = None
+    qdrant_client: QdrantClient | None = None,
+    original_filename: str | None = None
 ) -> dict:
     """
     Full ingestion pipeline: PDF -> Markdown -> Chunks -> Embeddings -> Qdrant.
@@ -81,6 +82,7 @@ def run_ingestion(
         pdf_dir: Path to directory containing PDFs.
         pdf_file: Path to a specific PDF file.
         qdrant_client: Optional existing QdrantClient instance (to avoid file lock).
+        original_filename: Optional display name for the source document.
 
     Returns:
         Summary dict with stats about the ingestion run.
@@ -179,6 +181,9 @@ def run_ingestion(
     # Flatten all nodes for embedding
     all_nodes = []
     for doc in chunked_docs:
+        # Determine display name
+        display_name = original_filename if original_filename else Path(doc["filename"]).name
+
         for i, node in enumerate(doc["nodes"]):
             all_nodes.append({
                 "text": node.get_content(),
@@ -187,6 +192,8 @@ def run_ingestion(
                     "chunk_index": i,
                     "total_chunks": doc["node_count"],
                     "source_file": doc["filename"],
+                    "source_document": display_name,
+                    "image_path": None,
                     "content_type": "text"
                 },
             })
@@ -219,6 +226,8 @@ def run_ingestion(
                     payload={
                         "text": chunk["text"],
                         "source_file": chunk["metadata"].get("source_file", "unknown"),
+                        "source_document": chunk["metadata"].get("source_document"),
+                        "image_path": chunk["metadata"].get("image_path"),
                         "chunk_index": chunk["metadata"].get("chunk_index", 0),
                         "total_chunks": chunk["metadata"].get("total_chunks", 0),
                         "content_type": "text",
@@ -244,6 +253,7 @@ def run_ingestion(
                         payload={
                             "text": payload["combined_text"],
                             "source_file": payload["source_file"],
+                            "source_document": original_filename if original_filename else Path(payload["source_file"]).name,
                             "content_type": "image",
                             "image_path": payload["image_path"],
                             "page_no": payload["page_no"],

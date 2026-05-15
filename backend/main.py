@@ -9,9 +9,11 @@ import sys
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import Dict
+
 from ollama import Client as OllamaClient
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qdrant_models
@@ -112,6 +114,36 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     results: list
 
+# In-memory dictionary to track background task statuses
+task_status: Dict[str, dict] = {}
+
+def process_document_bg(task_id: str, tmp_path: str, original_filename: str, client: QdrantClient):
+    """Background task to run the heavy multimodal ingestion pipeline."""
+    task_status[task_id] = {"status": "processing", "filename": original_filename, "message": "Starting pipeline..."}
+    try:
+        logger.info(f"Background task {task_id} started for: {original_filename}")
+        result = run_ingestion(pdf_file=tmp_path, qdrant_client=client, original_filename=original_filename)
+        
+        if result.get("status") == "success":
+            task_status[task_id] = {
+                "status": "completed",
+                "filename": original_filename,
+                "chunks_created": result.get("total_chunks", 0),
+                "message": "Multimodal ingestion complete."
+            }
+        else:
+            task_status[task_id] = {
+                "status": "failed",
+                "filename": original_filename,
+                "message": result.get("reason", "Unknown pipeline error")
+            }
+    except Exception as e:
+        logger.error(f"Task {task_id} failed: {traceback.format_exc()}")
+        task_status[task_id] = {"status": "failed", "filename": original_filename, "message": str(e)}
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 @app.get("/health", response_model=HealthResponse, tags=["System"])
@@ -138,35 +170,43 @@ async def root():
 
 
 @app.post("/upload", tags=["Documents"])
-async def upload_document(file: UploadFile = File(...)):
-    """Uploads a PDF and processes it using the advanced Multimodal Ingestion Pipeline."""
+async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    """Accepts a PDF, starts the Multimodal Ingestion Pipeline in the background, and returns a Task ID."""
     try:
-        # Create temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(await file.read())
-            tmp_path = tmp.name
+        # Generate a unique task ID
+        task_id = str(uuid.uuid4())
         
-        # Trigger our advanced pipeline!
-        logger.info(f"Triggering multimodal ingestion for: {file.filename}")
-        result = run_ingestion(pdf_file=tmp_path, qdrant_client=qdrant_client)
+        # Save uploaded file to a temporary file
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+        tmp.write(await file.read())
+        tmp.close()
         
-        # Clean up temp file
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-            
-        if result.get("status") == "success":
-            return {
-                "status": "success", 
-                "chunks_created": result.get("total_chunks", 0), 
-                "filename": file.filename,
-                "message": "Multimodal ingestion complete (Images + OCR + Text)"
-            }
-        else:
-            raise Exception(result.get("reason", "Unknown pipeline error"))
+        # Add the heavy lifting to the background queue
+        background_tasks.add_task(
+            process_document_bg, 
+            task_id, 
+            tmp.name, 
+            file.filename, 
+            qdrant_client
+        )
+        
+        # Set initial status
+        task_status[task_id] = {"status": "queued", "filename": file.filename}
+        
+        # Return immediately!
+        return {"task_id": task_id, "status": "queued", "message": "Document ingestion started in background."}
 
     except Exception as e:
         logger.error(f"Upload failed: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/status/{task_id}", tags=["Documents"])
+async def get_task_status(task_id: str):
+    """Check the status of a background ingestion task."""
+    if task_id not in task_status:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task_status[task_id]
+
 
 
 @app.post("/query", response_model=QueryResponse, tags=["Retrieval"])
@@ -186,7 +226,9 @@ async def query_documents(request: QueryRequest):
                 "id": hit.id,
                 "score": hit.score,
                 "text": hit.payload.get("text"),
-                "filename": hit.payload.get("filename")
+                "source_document": hit.payload.get("source_document"),
+                "image_path": hit.payload.get("image_path"),
+                "content_type": hit.payload.get("content_type", "text")
             }
             for hit in search_result
         ]
@@ -211,7 +253,7 @@ async def list_documents():
         docs = [
             {
                 "id": point.id,
-                "filename": point.payload.get("filename", "unknown"),
+                "source_document": point.payload.get("source_document", "unknown"),
                 "content_preview": point.payload.get("text", "")[:100] + "..." if point.payload.get("text") else ""
             }
             for point in scroll_result

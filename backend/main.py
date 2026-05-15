@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Dict
 
@@ -25,6 +26,10 @@ import os
 from docling.document_converter import DocumentConverter
 from llama_index.core import Document
 from llama_index.core.node_parser import MarkdownNodeParser
+
+# Import our custom pipeline and embedder
+from ingestion.pipeline import run_ingestion
+from ingestion.embedder import DocRAFTEmbedder
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -44,75 +49,74 @@ QDRANT_HOST = os.getenv("QDRANT_HOST", "127.0.0.1")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 COLLECTION_NAME = "docraft_knowledge"
 
-# Initialize client as None to prevent NameError if connection fails
-qdrant_client = None
-ollama_client = None
-
-try:
-    ollama_client = OllamaClient(host=OLLAMA_HOST)
-    
-    # Use local mode if in development and not forced to use host
-    if ENVIRONMENT == "development" and QDRANT_HOST in ["localhost", "127.0.0.1"]:
-        logger.info("Using Local Disk Mode for Qdrant")
-        qdrant_client = QdrantClient(path="local_qdrant")
-    else:
-        qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
-except Exception as e:
-    logger.error(f"Failed to initialize clients: {e}")
-
-# Import our custom pipeline and embedder AFTER basic config
-from ingestion.pipeline import run_ingestion
-from ingestion.embedder import DocRAFTEmbedder
-
-# Initialize the embedder once at startup (singleton)
-# It will try BGE first, then fall back to nomic-embed-text.
+# Global placeholders for clients (initialized in lifespan)
+qdrant_client: QdrantClient | None = None
+ollama_client: OllamaClient | None = None
 doc_embedder: DocRAFTEmbedder | None = None
-try:
-    doc_embedder = DocRAFTEmbedder()
-except Exception as e:
-    logger.error(f"Failed to initialize embedder: {e}")
 
 
 # ── Lifespan ─────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global qdrant_client, ollama_client, doc_embedder
     logger.info(f"DocRAFT API starting up (env={ENVIRONMENT})")
     
+    # 1. Initialize Qdrant/Ollama (Fast)
     try:
-        if qdrant_client and doc_embedder:
-            vector_size = doc_embedder.vector_size
-            
+        ollama_client = OllamaClient(host=OLLAMA_HOST)
+        
+        if ENVIRONMENT == "development" and QDRANT_HOST in ["localhost", "127.0.0.1"]:
+            logger.info("Using Local Disk Mode for Qdrant")
+            qdrant_client = QdrantClient(path="local_qdrant")
+        else:
+            qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+        logger.info("✓ Core clients initialized successfully.")
+    except Exception as e:
+        logger.error(f"CRITICAL: Failed to initialize clients: {e}")
+
+    # 2. Collection Setup (Fast)
+    try:
+        if qdrant_client:
+            # We check for dimension mismatch
+            vector_size = 1024 # Default for BGE-Large
             if qdrant_client.collection_exists(collection_name=COLLECTION_NAME):
-                # Check current dimension
                 info = qdrant_client.get_collection(collection_name=COLLECTION_NAME)
                 current_params = info.config.params.vectors
-                current_dim = current_params.size if hasattr(current_params, 'size') else current_params['size']
+                # Handle different qdrant versions of response
+                current_dim = getattr(current_params, 'size', None) or current_params.get('size')
                 
                 if current_dim != vector_size:
-                    logger.warning(f"Collection '{COLLECTION_NAME}' has dim={current_dim}, but model requires dim={vector_size}. Recreating...")
+                    logger.warning(f"Dimension mismatch (DB={current_dim}, App={vector_size}). Recreating...")
                     qdrant_client.delete_collection(collection_name=COLLECTION_NAME)
                     qdrant_client.create_collection(
                         collection_name=COLLECTION_NAME,
                         vectors_config=qdrant_models.VectorParams(size=vector_size, distance=qdrant_models.Distance.COSINE),
                     )
-                    logger.info(f"Collection {COLLECTION_NAME} recreated successfully.")
-                else:
-                    logger.info(f"Collection {COLLECTION_NAME} verified (dim={vector_size}).")
             else:
-                logger.info(f"Initializing collection: {COLLECTION_NAME} (dim={vector_size})")
                 qdrant_client.create_collection(
                     collection_name=COLLECTION_NAME,
                     vectors_config=qdrant_models.VectorParams(size=vector_size, distance=qdrant_models.Distance.COSINE),
                 )
-                logger.info(f"Collection {COLLECTION_NAME} created successfully.")
+                logger.info(f"Collection {COLLECTION_NAME} created.")
     except Exception as e:
-        logger.error(f"Could not initialize Qdrant collection: {e}")
+        logger.error(f"Failed to setup collection: {e}")
 
     yield
-    logger.info("DocRAFT API shutting down")
+    
+    # 3. Shutdown
+    logger.info("DocRAFT API shutting down...")
+    if qdrant_client:
+        qdrant_client.close()
 
 
-# ── App Factory ──────────────────────────────────────────────────────────────
+# ── Utilities ────────────────────────────────────────────────────────────────
+def get_embedder():
+    """Lazy-load the embedder to prevent startup blocking."""
+    global doc_embedder
+    if doc_embedder is None:
+        logger.info("Loading embedding model (BGE-Large)... this may take a moment.")
+        doc_embedder = DocRAFTEmbedder()
+    return doc_embedder
 app = FastAPI(
     title="DocRAFT API",
     description="Enterprise-Grade RAFT Agent — backend API",
@@ -127,7 +131,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Sources"],
 )
+
+# ── Static file serving for extracted images ─────────────────────────────────
+IMAGES_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "images")
+os.makedirs(IMAGES_DIR, exist_ok=True)
+app.mount("/images", StaticFiles(directory=IMAGES_DIR), name="images")
 
 
 # ── Schemas ──────────────────────────────────────────────────────────────────
@@ -140,6 +150,7 @@ class HealthResponse(BaseModel):
 class QueryRequest(BaseModel):
     query: str
     limit: int = 5
+    document_filter: str | None = None
 
 class QueryResponse(BaseModel):
     results: list
@@ -251,15 +262,27 @@ async def query_documents(request: QueryRequest):
     try:
         if not qdrant_client:
             raise HTTPException(status_code=503, detail="Database is not connected.")
-        if not doc_embedder:
-            raise HTTPException(status_code=503, detail="Embedding model is not initialized.")
-
-        logger.info(f"[Query] Using embedder: {doc_embedder.model_name} (dim={doc_embedder.vector_size})")
-        query_vector = doc_embedder.embed_query(request.query)
+        
+        embedder = get_embedder()
+        logger.info(f"[Query] Using embedder: {embedder.model_name} (dim={embedder.vector_size})")
+        query_vector = embedder.embed_query(request.query)
+        
+        # Build optional document filter
+        query_filter = None
+        if request.document_filter:
+            query_filter = qdrant_models.Filter(
+                must=[
+                    qdrant_models.FieldCondition(
+                        key="source_document",
+                        match=qdrant_models.MatchValue(value=request.document_filter)
+                    )
+                ]
+            )
         
         search_result = qdrant_client.query_points(
             collection_name=COLLECTION_NAME,
             query=query_vector,
+            query_filter=query_filter,
             limit=request.limit
         ).points
         
@@ -296,6 +319,7 @@ async def list_documents():
             {
                 "id": point.id,
                 "filename": point.payload.get("filename") or point.payload.get("source_file") or point.payload.get("source_document") or "unknown",
+                "source_document": point.payload.get("source_document") or point.payload.get("filename") or "unknown",
                 "content_preview": point.payload.get("text", "")[:100] + "..." if point.payload.get("text") else ""
             }
             for point in scroll_result
@@ -305,3 +329,7 @@ async def list_documents():
     except Exception as e:
         logger.error(f"List documents failed: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

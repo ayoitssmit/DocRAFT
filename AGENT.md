@@ -255,7 +255,7 @@ docs: add detailed Ollama setup instructions to README
 
 | # | Title | Assignee | Labels | State |
 |---|---|---|---|---|
-| 3 | Docling integration; build PDF to Markdown to LlamaIndex chunking pipeline | Jalpan04 | AI/Ml | OPEN |
+| 3 | Docling integration; build PDF to Markdown to LlamaIndex chunking pipeline | Jalpan04 | AI/Ml | CLOSED |
 | 5 | FastAPI endpoints: /upload, /query, /documents; basic health checks | ayoitssmit | Full-Stack | OPEN |
 | 26 | Data Collection: Gather 50-200 technical PDF manuals for RAG corpus | Jalpan04, ayoitssmit | AI/Ml | OPEN |
 

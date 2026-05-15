@@ -65,12 +65,13 @@ class DoclingConverter:
         self.persist_markdown = persist_markdown
         print(f"[SUCCESS] Docling initialized (Memory-optimized)")
 
-    def convert_pdf(self, pdf_path: str | Path) -> dict:
+    def convert_pdf(self, pdf_path: str | Path, original_filename: str | None = None) -> dict:
         """
         Convert a single PDF file to Markdown and extract images.
 
         Args:
             pdf_path: Path to the PDF file.
+            original_filename: The actual name of the file (to avoid temp names).
 
         Returns:
             dict with keys: filename, markdown, converted_at, images
@@ -79,8 +80,9 @@ class DoclingConverter:
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
-        print(f"[STEP] Converting PDF: {pdf_path.name}")
-        logger.info(f"Converting PDF: {pdf_path.name}")
+        display_name = original_filename or pdf_path.name
+        print(f"[STEP] Converting PDF: {display_name}")
+        logger.info(f"Converting PDF: {display_name}")
         
         result = self.converter.convert(str(pdf_path))
         markdown = result.document.export_to_markdown()
@@ -119,15 +121,16 @@ class DoclingConverter:
 
         print(f"[SUCCESS] Conversion complete ({len(markdown)} characters, {len(images)} images found)")
         logger.info(
-            f"Converted {pdf_path.name}: {len(markdown)} chars, {len(images)} images"
+            f"Converted {display_name}: {len(markdown)} chars, {len(images)} images"
         )
 
         # Optionally persist for debugging
         if self.persist_markdown:
-            self._persist(pdf_path.stem, markdown)
+            # Use display_name stem for the markdown file
+            self._persist(Path(display_name).stem, markdown)
 
         return {
-            "filename": pdf_path.name,
+            "filename": display_name,
             "markdown": markdown,
             "converted_at": converted_at,
             "images": images,

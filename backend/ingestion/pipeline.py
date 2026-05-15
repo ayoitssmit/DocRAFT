@@ -82,7 +82,7 @@ def run_ingestion(
         pdf_dir: Path to directory containing PDFs.
         pdf_file: Path to a specific PDF file.
         qdrant_client: Optional existing QdrantClient instance (to avoid file lock).
-        original_filename: Optional display name for the source document.
+        original_filename: The actual display name of the file (to avoid temp names).
 
     Returns:
         Summary dict with stats about the ingestion run.
@@ -92,7 +92,7 @@ def run_ingestion(
         if not input_path.exists():
             logger.error(f"File not found: {pdf_file}")
             return {"status": "error", "reason": "file_not_found"}
-        logger.info(f"Processing single file: {pdf_file}")
+        logger.info(f"Processing single file: {pdf_file} (Original: {original_filename or 'Unknown'})")
         # We still need a dir for Docling converter in current impl, 
         # or we modify converter. Let's just pass the file path.
     else:
@@ -112,7 +112,7 @@ def run_ingestion(
     converter = DoclingConverter(persist_markdown=True)
     
     if pdf_file:
-        converted_docs = [converter.convert_pdf(input_path)]
+        converted_docs = [converter.convert_pdf(input_path, original_filename=original_filename)]
     else:
         converted_docs = converter.convert_directory(input_path)
 
@@ -279,8 +279,14 @@ def run_ingestion(
     if qdrant_client:
         qdrant = qdrant_client
     else:
-        # Fallback to local mode if no client provided
-        qdrant = QdrantClient(path="local_qdrant")
+        # If no client is provided, we MUST check if we are in local mode.
+        # Creating a new QdrantClient(path=...) here will fail if the main app has it locked.
+        if QDRANT_HOST in ["localhost", "127.0.0.1"]:
+            raise RuntimeError(
+                "No Qdrant client provided and local storage is likely locked by the main application. "
+                "The ingestion pipeline must reuse the existing database connection."
+            )
+        qdrant = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
     
     _init_collection(qdrant, COLLECTION_NAME, vector_size)
 

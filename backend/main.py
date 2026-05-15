@@ -44,6 +44,10 @@ QDRANT_HOST = os.getenv("QDRANT_HOST", "127.0.0.1")
 QDRANT_PORT = int(os.getenv("QDRANT_PORT", 6333))
 COLLECTION_NAME = "docraft_knowledge"
 
+# Initialize client as None to prevent NameError if connection fails
+qdrant_client = None
+ollama_client = None
+
 try:
     ollama_client = OllamaClient(host=OLLAMA_HOST)
     
@@ -66,7 +70,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"DocRAFT API starting up (env={ENVIRONMENT})")
     
     try:
-        if not qdrant_client.collection_exists(collection_name=COLLECTION_NAME):
+        if qdrant_client and not qdrant_client.collection_exists(collection_name=COLLECTION_NAME):
             logger.info(f"Initializing collection: {COLLECTION_NAME}")
             sample_embed = ollama_client.embeddings(model=EMBED_MODEL, prompt="test")['embedding']
             vector_size = len(sample_embed)
@@ -180,6 +184,12 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
         tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
         tmp.write(await file.read())
         tmp.close()
+
+        # Check if database is connected
+        if not qdrant_client:
+            raise Exception("Database is not connected. Please check if another instance of DocRAFT is running and locking the storage.")
+        
+        logger.info(f"Triggering background multimodal ingestion for: {file.filename}")
         
         # Add the heavy lifting to the background queue
         background_tasks.add_task(
@@ -226,7 +236,7 @@ async def query_documents(request: QueryRequest):
                 "id": hit.id,
                 "score": hit.score,
                 "text": hit.payload.get("text"),
-                "source_document": hit.payload.get("source_document"),
+                "filename": hit.payload.get("filename") or hit.payload.get("source_file") or hit.payload.get("source_document"),
                 "image_path": hit.payload.get("image_path"),
                 "content_type": hit.payload.get("content_type", "text")
             }
@@ -253,7 +263,7 @@ async def list_documents():
         docs = [
             {
                 "id": point.id,
-                "source_document": point.payload.get("source_document", "unknown"),
+                "filename": point.payload.get("filename") or point.payload.get("source_file") or point.payload.get("source_document") or "unknown",
                 "content_preview": point.payload.get("text", "")[:100] + "..." if point.payload.get("text") else ""
             }
             for point in scroll_result

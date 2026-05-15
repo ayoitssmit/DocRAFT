@@ -29,6 +29,7 @@ from .config import (
 )
 from .converter import DoclingConverter
 from .chunker import MarkdownChunker
+from .embedder import DocRAFTEmbedder
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -55,10 +56,26 @@ def clean_markdown(md_text: str) -> str:
 def _init_collection(
     qdrant: QdrantClient, collection_name: str, vector_size: int
 ) -> None:
-    """Ensure the Qdrant collection exists."""
+    """Ensure the Qdrant collection exists and matches the required dimensions."""
     if qdrant.collection_exists(collection_name=collection_name):
-        logger.info(f"Collection '{collection_name}' already exists. Skipping creation.")
-        return
+        # Check current dimension
+        info = qdrant.get_collection(collection_name=collection_name)
+        # Handle both VectorParams and dict response formats
+        current_params = info.config.params.vectors
+        if hasattr(current_params, 'size'):
+            current_dim = current_params.size
+        else:
+            current_dim = current_params['size']
+            
+        if current_dim == vector_size:
+            logger.info(f"Collection '{collection_name}' already exists with correct dim={vector_size}.")
+            return
+        else:
+            logger.warning(
+                f"Collection '{collection_name}' has dim={current_dim}, but model requires dim={vector_size}. "
+                "Recreating collection..."
+            )
+            qdrant.delete_collection(collection_name=collection_name)
 
     qdrant.create_collection(
         collection_name=collection_name,
@@ -203,21 +220,21 @@ def run_ingestion(
     print("STEP 3: Vector Embedding")
     print("="*30)
     logger.info("STEP 3: Generating embeddings...")
-    ollama_client = Client(host=OLLAMA_HOST)
 
-    # Auto-detect vector dimensions
-    sample_embed = ollama_client.embeddings(model=EMBED_MODEL, prompt="test")["embedding"]
-    vector_size = len(sample_embed)
-    logger.info(f"Embedding model: {EMBED_MODEL}, vector dimensions: {vector_size}")
+    embedder = DocRAFTEmbedder()
+    logger.info(
+        f"[Pipeline] Active embedder: {embedder.model_name} "
+        f"(backend={embedder.backend}, dim={embedder.vector_size})"
+    )
+    vector_size = embedder.vector_size
 
     points = []
     
     # 3.1: Embed Text Chunks (Fast)
-    logger.info(f"Embedding {len(all_nodes)} text chunks...")
+    logger.info(f"Embedding {len(all_nodes)} text chunks with {embedder.model_name}...")
     for idx, chunk in enumerate(all_nodes):
         try:
-            response = ollama_client.embeddings(model=EMBED_MODEL, prompt=chunk["text"])
-            embedding = response["embedding"]
+            embedding = embedder.embed(chunk["text"])
 
             points.append(
                 models.PointStruct(
@@ -231,6 +248,7 @@ def run_ingestion(
                         "chunk_index": chunk["metadata"].get("chunk_index", 0),
                         "total_chunks": chunk["metadata"].get("total_chunks", 0),
                         "content_type": "text",
+                        "embed_model": embedder.model_name,
                         "ingested_at": datetime.now(timezone.utc).isoformat(),
                     },
                 )
@@ -242,14 +260,14 @@ def run_ingestion(
 
     # 3.2: Embed standalone Image Descriptions
     if image_points_payloads:
-        logger.info(f"Embedding {len(image_points_payloads)} standalone image descriptions...")
+        logger.info(f"Embedding {len(image_points_payloads)} standalone image descriptions with {embedder.model_name}...")
         for payload in image_points_payloads:
             try:
-                response = ollama_client.embeddings(model=EMBED_MODEL, prompt=payload["combined_text"])
+                img_embedding = embedder.embed(payload["combined_text"])
                 points.append(
                     models.PointStruct(
                         id=str(uuid.uuid4()),
-                        vector=response["embedding"],
+                        vector=img_embedding,
                         payload={
                             "text": payload["combined_text"],
                             "source_file": payload["source_file"],
@@ -258,6 +276,7 @@ def run_ingestion(
                             "image_path": payload["image_path"],
                             "page_no": payload["page_no"],
                             "description": payload["description"],
+                            "embed_model": embedder.model_name,
                             "ingested_at": datetime.now(timezone.utc).isoformat(),
                         },
                     )

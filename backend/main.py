@@ -60,8 +60,17 @@ try:
 except Exception as e:
     logger.error(f"Failed to initialize clients: {e}")
 
-# Import our custom pipeline AFTER basic config
+# Import our custom pipeline and embedder AFTER basic config
 from ingestion.pipeline import run_ingestion
+from ingestion.embedder import DocRAFTEmbedder
+
+# Initialize the embedder once at startup (singleton)
+# It will try BGE first, then fall back to nomic-embed-text.
+doc_embedder: DocRAFTEmbedder | None = None
+try:
+    doc_embedder = DocRAFTEmbedder()
+except Exception as e:
+    logger.error(f"Failed to initialize embedder: {e}")
 
 
 # ── Lifespan ─────────────────────────────────────────────────────────────────
@@ -70,15 +79,32 @@ async def lifespan(app: FastAPI):
     logger.info(f"DocRAFT API starting up (env={ENVIRONMENT})")
     
     try:
-        if qdrant_client and not qdrant_client.collection_exists(collection_name=COLLECTION_NAME):
-            logger.info(f"Initializing collection: {COLLECTION_NAME}")
-            sample_embed = ollama_client.embeddings(model=EMBED_MODEL, prompt="test")['embedding']
-            vector_size = len(sample_embed)
-            qdrant_client.create_collection(
-                collection_name=COLLECTION_NAME,
-                vectors_config=qdrant_models.VectorParams(size=vector_size, distance=qdrant_models.Distance.COSINE),
-            )
-            logger.info(f"Collection {COLLECTION_NAME} created successfully.")
+        if qdrant_client and doc_embedder:
+            vector_size = doc_embedder.vector_size
+            
+            if qdrant_client.collection_exists(collection_name=COLLECTION_NAME):
+                # Check current dimension
+                info = qdrant_client.get_collection(collection_name=COLLECTION_NAME)
+                current_params = info.config.params.vectors
+                current_dim = current_params.size if hasattr(current_params, 'size') else current_params['size']
+                
+                if current_dim != vector_size:
+                    logger.warning(f"Collection '{COLLECTION_NAME}' has dim={current_dim}, but model requires dim={vector_size}. Recreating...")
+                    qdrant_client.delete_collection(collection_name=COLLECTION_NAME)
+                    qdrant_client.create_collection(
+                        collection_name=COLLECTION_NAME,
+                        vectors_config=qdrant_models.VectorParams(size=vector_size, distance=qdrant_models.Distance.COSINE),
+                    )
+                    logger.info(f"Collection {COLLECTION_NAME} recreated successfully.")
+                else:
+                    logger.info(f"Collection {COLLECTION_NAME} verified (dim={vector_size}).")
+            else:
+                logger.info(f"Initializing collection: {COLLECTION_NAME} (dim={vector_size})")
+                qdrant_client.create_collection(
+                    collection_name=COLLECTION_NAME,
+                    vectors_config=qdrant_models.VectorParams(size=vector_size, distance=qdrant_models.Distance.COSINE),
+                )
+                logger.info(f"Collection {COLLECTION_NAME} created successfully.")
     except Exception as e:
         logger.error(f"Could not initialize Qdrant collection: {e}")
 
@@ -223,7 +249,13 @@ async def get_task_status(task_id: str):
 async def query_documents(request: QueryRequest):
     """Queries the vector database using semantic search."""
     try:
-        query_vector = ollama_client.embeddings(model=EMBED_MODEL, prompt=request.query)['embedding']
+        if not qdrant_client:
+            raise HTTPException(status_code=503, detail="Database is not connected.")
+        if not doc_embedder:
+            raise HTTPException(status_code=503, detail="Embedding model is not initialized.")
+
+        logger.info(f"[Query] Using embedder: {doc_embedder.model_name} (dim={doc_embedder.vector_size})")
+        query_vector = doc_embedder.embed_query(request.query)
         
         search_result = qdrant_client.query_points(
             collection_name=COLLECTION_NAME,

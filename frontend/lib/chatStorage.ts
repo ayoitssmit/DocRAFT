@@ -1,7 +1,10 @@
+import type { QueryResult } from "./api";
+
 export interface Message {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
+  sources?: QueryResult[];
 }
 
 const STORAGE_KEY = "docraftSessions";

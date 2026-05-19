@@ -72,17 +72,6 @@ export default function ChatPage() {
 
       if (!response.ok) throw new Error("Failed to fetch");
 
-      // Handle sources header
-      const sourcesHeader = response.headers.get("X-Sources");
-      if (sourcesHeader) {
-        try {
-          const sources: QueryResult[] = JSON.parse(decodeURIComponent(sourcesHeader));
-          setPendingSources(sources);
-        } catch (e) {
-          console.error("Failed to parse sources header:", e);
-        }
-      }
-
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantContent = "";
@@ -92,6 +81,9 @@ export default function ChatPage() {
       setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
 
       if (reader) {
+        let sourcesExtracted = false;
+        let localSources: QueryResult[] | undefined = undefined;
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -99,19 +91,35 @@ export default function ChatPage() {
           const chunk = decoder.decode(value, { stream: true });
           assistantContent += chunk;
 
-          // Update the assistant message in place
-          setMessages((prev) => 
-            prev.map(m => m.id === assistantId ? { ...m, content: assistantContent } : m)
-          );
-        }
+          // Check if we can extract sources from the prefix HTML comment tag
+          if (!sourcesExtracted && assistantContent.startsWith("<!--SOURCES:")) {
+            const closingTagIndex = assistantContent.indexOf("-->");
+            if (closingTagIndex !== -1) {
+              const jsonStr = assistantContent.substring("<!--SOURCES:".length, closingTagIndex);
+              try {
+                const parsedSources: QueryResult[] = JSON.parse(jsonStr);
+                setSourcesMap((prev) => ({
+                  ...prev,
+                  [assistantId]: parsedSources,
+                }));
+                localSources = parsedSources;
+              } catch (e) {
+                console.error("Failed to parse streamed sources:", e);
+              }
+              // Strip the sources prefix from the displayed content
+              assistantContent = assistantContent.substring(closingTagIndex + "-->".length);
+              sourcesExtracted = true;
+            }
+          }
 
-        // Finalize sources
-        if (pendingSourcesRef.current) {
-          setSourcesMap((prev) => ({
-            ...prev,
-            [assistantId]: pendingSourcesRef.current!,
-          }));
-          pendingSourcesRef.current = null;
+          // Update the assistant message in place (excluding the prefix if parsed, or keeping it if still loading)
+          setMessages((prev) => 
+            prev.map(m => m.id === assistantId ? { 
+              ...m, 
+              content: sourcesExtracted ? assistantContent : assistantContent.substring(assistantContent.indexOf("-->") !== -1 ? assistantContent.indexOf("-->") + 3 : 0),
+              sources: localSources
+            } : m)
+          );
         }
       }
     } catch (error) {
@@ -136,10 +144,6 @@ export default function ChatPage() {
     }
   };
 
-  const pendingSourcesRef = useRef<QueryResult[] | null>(null);
-  const setPendingSources = (sources: QueryResult[]) => {
-    pendingSourcesRef.current = sources;
-  };
 
   // Auto-save messages to active session whenever messages change
   useEffect(() => {
@@ -220,8 +224,18 @@ export default function ChatPage() {
   useEffect(() => {
     if (activeSession) {
       setMessages(activeSession.messages || []);
+
+      // Load sources from messages into the in-memory sourcesMap
+      const newSourcesMap: Record<string, QueryResult[]> = {};
+      activeSession.messages.forEach((m) => {
+        if (m.sources) {
+          newSourcesMap[m.id] = m.sources;
+        }
+      });
+      setSourcesMap(newSourcesMap);
     } else {
       setMessages([]);
+      setSourcesMap({});
     }
   }, [activeSessionId]);
 

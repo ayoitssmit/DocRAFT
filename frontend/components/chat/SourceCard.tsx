@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronUp, FileText, Image } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ImagePreview } from "./ImagePreview";
 import type { QueryResult } from "@/lib/api";
 
@@ -12,6 +14,19 @@ interface SourceCardProps {
 
 export function SourceCard({ source, index }: SourceCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [textExpanded, setTextExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (expanded && containerRef.current) {
+      // Truncate only if natural height is more than 200px (160px limit + 40px threshold)
+      const hasOverflow = containerRef.current.scrollHeight > 200;
+      setIsOverflowing(hasOverflow);
+    } else {
+      setIsOverflowing(false);
+    }
+  }, [expanded, source.text]);
 
   const docName =
     source.source_document || source.filename || "unknown";
@@ -103,18 +118,79 @@ export function SourceCard({ source, index }: SourceCardProps) {
           )}
 
           {/* Text content */}
-          <p
+          <div
             style={{
               fontSize: 13,
               lineHeight: 1.65,
               color: "var(--c-muted)",
               margin: "12px 0 0",
               fontFamily: "var(--font-display)",
-              whiteSpace: "pre-wrap",
+              position: "relative",
             }}
           >
-            {source.text}
-          </p>
+            <div
+              ref={containerRef}
+              style={{
+                maxHeight: (isOverflowing && !textExpanded) ? 160 : "none",
+                overflow: "hidden",
+                position: "relative",
+                transition: "max-height 0.3s ease",
+              }}
+            >
+              <div className="markdown-body">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    img: (props: any) => {
+                      const { src, alt } = props;
+                      if (!src) return null;
+                      return (
+                        <div style={{ marginTop: 8, marginBottom: 8 }}>
+                          <ImagePreview imagePath={src} alt={typeof alt === "string" ? alt : "Image"} />
+                        </div>
+                      );
+                    }
+                  }}
+                >
+                  {source.text}
+                </ReactMarkdown>
+              </div>
+              {!textExpanded && isOverflowing && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 40,
+                    background: "linear-gradient(to bottom, transparent, var(--bg-surface))",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
+            </div>
+            {isOverflowing && (
+              <button
+                onClick={() => setTextExpanded(!textExpanded)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginTop: 8,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "var(--c-accent-mid)",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                  fontFamily: "var(--font-mono)",
+                }}
+              >
+                {textExpanded ? "Show less" : "Show more"}
+              </button>
+            )}
+          </div>
 
           {/* Source tag */}
           <div style={{ marginTop: 10 }}>

@@ -3,6 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SourceCard } from "@/components/chat/SourceCard";
+import { ImagePreview } from "./ImagePreview";
 import type { QueryResult } from "@/lib/api";
 
 interface MessageBubbleProps {
@@ -69,7 +70,20 @@ export function MessageBubble({ role, content, sources }: MessageBubbleProps) {
             <p style={{ margin: 0 }}>{content}</p>
           ) : (
             <div className="markdown-body">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  img: (props: any) => {
+                    const { src, alt } = props;
+                    if (!src) return null;
+                    return (
+                      <div style={{ marginTop: 8, marginBottom: 8 }}>
+                        <ImagePreview imagePath={src} alt={typeof alt === "string" ? alt : "Image"} />
+                      </div>
+                    );
+                  }
+                }}
+              >
                 {content}
               </ReactMarkdown>
             </div>

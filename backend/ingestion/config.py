@@ -35,3 +35,14 @@ VISION_MODEL: str = os.getenv("VISION_MODEL", "granite3.2-vision:2b")
 # 512-char chunks are very safe and good for granular retrieval.
 CHUNK_SIZE: int = 512
 CHUNK_OVERLAP: int = 64
+
+# ── Reranker & Two-Pass Retrieval ────────────────────────────────────────────
+RERANKER_PRIMARY: str = "BAAI/bge-reranker-v2-m3"
+RERANKER_FALLBACK: str = "BAAI/bge-reranker-base"
+
+# Two-pass retrieval parameters:
+# RETRIEVAL_CANDIDATE_K = number of candidate chunks retrieved in Phase 1 (broad recall)
+# RETRIEVAL_RERANK_N   = number of high-quality chunks kept in Phase 2 (high precision)
+RETRIEVAL_CANDIDATE_K: int = 20
+RETRIEVAL_RERANK_N: int = 5
+

@@ -12,9 +12,19 @@ interface ImagePreviewProps {
 export function ImagePreview({ imagePath, alt }: ImagePreviewProps) {
   const [error, setError] = useState(false);
 
-  // Construct the URL: the backend serves static files from /images
-  const filename = imagePath.split("/").pop() || imagePath;
-  const imageUrl = `${API_URL}/images/${filename}`;
+  // Construct the URL: serve recursively from /images, handles Windows/Linux paths and subdirectories
+  const cleanPath = imagePath.replace(/\\/g, "/");
+  const imagesIndex = cleanPath.toLowerCase().indexOf("images/");
+  
+  let relativePath = "";
+  if (imagesIndex !== -1) {
+    relativePath = cleanPath.substring(imagesIndex + "images/".length);
+  } else {
+    relativePath = cleanPath.split("/").pop() || cleanPath;
+  }
+  
+  const imageUrl = `${API_URL}/images/${relativePath}`;
+  const filename = relativePath.split("/").pop() || relativePath;
 
   if (error) {
     return (

@@ -10,9 +10,13 @@ import {
   ChevronRight,
   Trash2,
   MessageSquare,
+  Loader,
+  CheckCircle,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
-import { fetchHealth, fetchDocuments, type HealthData, type DocumentItem } from "@/lib/api";
+import { fetchHealth, fetchDocuments, fetchTaskStatus, type HealthData, type DocumentItem } from "@/lib/api";
 import type { ChatSession } from "@/lib/chatStorage";
 
 interface SidebarProps {
@@ -40,6 +44,102 @@ export function Sidebar({
   const [health, setHealth] = useState<HealthData | null>(null);
   const [healthError, setHealthError] = useState(false);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+
+  interface ActiveTask {
+    taskId: string;
+    filename: string;
+    status: "queued" | "processing" | "completed" | "failed";
+  }
+  const [activeTasks, setActiveTasks] = useState<ActiveTask[]>([]);
+
+  // Load active tasks from localStorage
+  const loadActiveTasks = () => {
+    try {
+      const stored = localStorage.getItem("docraft_active_tasks");
+      if (stored) {
+        setActiveTasks(JSON.parse(stored));
+      } else {
+        setActiveTasks([]);
+      }
+    } catch (e) {
+      console.error("Failed to load active tasks:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadActiveTasks();
+    window.addEventListener("docraft_active_tasks_changed", loadActiveTasks);
+    return () => {
+      window.removeEventListener("docraft_active_tasks_changed", loadActiveTasks);
+    };
+  }, []);
+
+  // Poll active task statuses every 4 seconds
+  useEffect(() => {
+    const unfinishedTasks = activeTasks.filter(t => t.status === "queued" || t.status === "processing");
+    if (unfinishedTasks.length === 0) return;
+
+    let isMounted = true;
+
+    const pollStatuses = async () => {
+      let updated = false;
+      const nextTasks = [...activeTasks];
+
+      for (let i = 0; i < nextTasks.length; i++) {
+        const task = nextTasks[i];
+        if (task.status === "queued" || task.status === "processing") {
+          try {
+            const statusData = await fetchTaskStatus(task.taskId);
+            if (statusData.status !== task.status) {
+              nextTasks[i] = { ...task, status: statusData.status };
+              updated = true;
+
+              // If completed, refresh the main document list immediately!
+              if (statusData.status === "completed") {
+                fetchDocuments()
+                  .then((data) => {
+                    if (isMounted) setDocuments(data.documents);
+                  })
+                  .catch(() => {});
+              }
+            }
+          } catch (e) {
+            console.error("Error polling task status in sidebar:", e);
+          }
+        }
+      }
+
+      if (updated && isMounted) {
+        localStorage.setItem("docraft_active_tasks", JSON.stringify(nextTasks));
+        setActiveTasks(nextTasks);
+      }
+    };
+
+    const interval = setInterval(pollStatuses, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [activeTasks]);
+
+  // Clean up completed or failed tasks from activeTasks after 6 seconds
+  useEffect(() => {
+    const completedOrFailed = activeTasks.filter(t => t.status === "completed" || t.status === "failed");
+    if (completedOrFailed.length === 0) return;
+
+    const timer = setTimeout(() => {
+      const nextTasks = activeTasks.filter(t => t.status !== "completed" && t.status !== "failed");
+      localStorage.setItem("docraft_active_tasks", JSON.stringify(nextTasks));
+      setActiveTasks(nextTasks);
+
+      // Refresh documents list to get the latest completed documents
+      fetchDocuments()
+        .then((data) => setDocuments(data.documents))
+        .catch(() => {});
+    }, 6000);
+
+    return () => clearTimeout(timer);
+  }, [activeTasks]);
 
   // Restore collapse state from localStorage
   useEffect(() => {
@@ -73,6 +173,21 @@ export function Sidebar({
     const interval = setInterval(poll, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const cancelTask = (taskId: string) => {
+    try {
+      const stored = localStorage.getItem("docraft_active_tasks");
+      if (stored) {
+        let tasks: ActiveTask[] = JSON.parse(stored);
+        tasks = tasks.filter((t) => t.taskId !== taskId);
+        localStorage.setItem("docraft_active_tasks", JSON.stringify(tasks));
+        setActiveTasks(tasks);
+        window.dispatchEvent(new Event("docraft_active_tasks_changed"));
+      }
+    } catch (e) {
+      console.error("Failed to cancel active task:", e);
+    }
+  };
 
   const toggleCollapse = () => {
     const next = !collapsed;
@@ -319,7 +434,7 @@ export function Sidebar({
         )}
 
         {/* Documents */}
-        {!collapsed && uniqueDocs.length > 0 && (
+        {!collapsed && (uniqueDocs.length > 0 || activeTasks.length > 0) && (
           <>
             <div
               style={{
@@ -334,7 +449,87 @@ export function Sidebar({
             >
               Documents
             </div>
-            {uniqueDocs.map((doc) => {
+
+            {/* Active processing/chunking tasks */}
+            {activeTasks.map((task) => (
+              <div
+                key={task.taskId}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "9px 12px",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  fontFamily: "var(--font-display)",
+                  color: "var(--c-muted)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {task.status === "failed" ? (
+                  <AlertCircle size={14} style={{ color: "var(--c-coral)", flexShrink: 0 }} />
+                ) : task.status === "completed" ? (
+                  <CheckCircle size={14} style={{ color: "#28C840", flexShrink: 0 }} />
+                ) : (
+                  <Loader
+                    size={14}
+                    style={{
+                      color: "var(--c-amber)",
+                      animation: "spin 1s linear infinite",
+                      flexShrink: 0,
+                    }}
+                  />
+                )}
+                <span
+                  style={{
+                    flex: 1,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    color: task.status === "completed" ? "var(--text-primary)" : "var(--c-muted)"
+                  }}
+                  title={task.filename}
+                >
+                  {task.filename}
+                </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    cancelTask(task.taskId);
+                  }}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--c-muted)",
+                    cursor: "pointer",
+                    padding: 2,
+                    borderRadius: 4,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "all var(--dur-fast)",
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "var(--c-coral)";
+                    e.currentTarget.style.background = "rgba(255, 95, 87, 0.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "var(--c-muted)";
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                  title="Cancel and remove task"
+                  aria-label="Cancel task"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+
+            {/* Completed documents */}
+            {uniqueDocs.filter(d => !activeTasks.some(t => (t.status === "queued" || t.status === "processing") && t.filename === (d.source_document || d.filename))).map((doc) => {
               const docName =
                 doc.source_document || doc.filename || "unknown";
               const isActive = activeFilter === docName;

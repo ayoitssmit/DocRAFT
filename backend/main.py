@@ -27,9 +27,10 @@ from docling.document_converter import DocumentConverter
 from llama_index.core import Document
 from llama_index.core.node_parser import MarkdownNodeParser
 
-# Import our custom pipeline and embedder
+# Import our custom pipeline, embedder, and reranker
 from ingestion.pipeline import run_ingestion
 from ingestion.embedder import DocRAFTEmbedder
+from retrieval.reranker import DocRAFTReranker
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -53,6 +54,7 @@ COLLECTION_NAME = "docraft_knowledge"
 qdrant_client: QdrantClient | None = None
 ollama_client: OllamaClient | None = None
 doc_embedder: DocRAFTEmbedder | None = None
+doc_reranker: DocRAFTReranker | None = None
 
 
 # ── Lifespan ─────────────────────────────────────────────────────────────────
@@ -117,6 +119,14 @@ def get_embedder():
         logger.info("Loading embedding model (BGE-Large)... this may take a moment.")
         doc_embedder = DocRAFTEmbedder()
     return doc_embedder
+
+def get_reranker():
+    """Lazy-load the reranker to prevent startup blocking."""
+    global doc_reranker
+    if doc_reranker is None:
+        logger.info("Loading reranker model (BGE-Reranker)... this may take a moment.")
+        doc_reranker = DocRAFTReranker()
+    return doc_reranker
 app = FastAPI(
     title="DocRAFT API",
     description="Enterprise-Grade RAFT Agent — backend API",
@@ -151,6 +161,7 @@ class QueryRequest(BaseModel):
     query: str
     limit: int = 5
     document_filter: str | None = None
+    rerank: bool = True  # Enable two-pass retrieval by default
 
 class QueryResponse(BaseModel):
     results: list
@@ -258,7 +269,7 @@ async def get_task_status(task_id: str):
 
 @app.post("/query", response_model=QueryResponse, tags=["Retrieval"])
 async def query_documents(request: QueryRequest):
-    """Queries the vector database using semantic search."""
+    """Queries the vector database using semantic search with optional reranking."""
     try:
         if not qdrant_client:
             raise HTTPException(status_code=503, detail="Database is not connected.")
@@ -279,24 +290,53 @@ async def query_documents(request: QueryRequest):
                 ]
             )
         
+        from ingestion.config import RETRIEVAL_CANDIDATE_K
+        
+        # Pass 1: Broad vector retrieval
+        candidate_limit = RETRIEVAL_CANDIDATE_K if request.rerank else request.limit
         search_result = qdrant_client.query_points(
             collection_name=COLLECTION_NAME,
             query=query_vector,
             query_filter=query_filter,
-            limit=request.limit
+            limit=candidate_limit
         ).points
         
-        results = [
-            {
-                "id": hit.id,
-                "score": hit.score,
-                "text": hit.payload.get("text"),
-                "filename": hit.payload.get("filename") or hit.payload.get("source_file") or hit.payload.get("source_document"),
-                "image_path": hit.payload.get("image_path"),
-                "content_type": hit.payload.get("content_type", "text")
-            }
-            for hit in search_result
-        ]
+        # Pass 2: Cross-encoder reranking (if enabled)
+        if request.rerank and len(search_result) > 0:
+            reranker = get_reranker()
+            texts = [hit.payload.get("text", "") for hit in search_result]
+            
+            # Rerank passages
+            reranked = reranker.rerank(request.query, texts, top_n=request.limit)
+            
+            results = []
+            for orig_idx, rerank_score in reranked:
+                hit = search_result[orig_idx]
+                results.append({
+                    "id": hit.id,
+                    "score": round(rerank_score, 4),
+                    "vector_score": round(hit.score, 4),
+                    "text": hit.payload.get("text"),
+                    "filename": hit.payload.get("filename") or hit.payload.get("source_file") or hit.payload.get("source_document"),
+                    "image_path": hit.payload.get("image_path"),
+                    "content_type": hit.payload.get("content_type", "text"),
+                    "reranked": True
+                })
+        else:
+            # Single-pass fallback
+            results = [
+                {
+                    "id": hit.id,
+                    "score": hit.score,
+                    "vector_score": hit.score,
+                    "text": hit.payload.get("text"),
+                    "filename": hit.payload.get("filename") or hit.payload.get("source_file") or hit.payload.get("source_document"),
+                    "image_path": hit.payload.get("image_path"),
+                    "content_type": hit.payload.get("content_type", "text"),
+                    "reranked": False
+                }
+                for hit in search_result
+            ]
         
         return QueryResponse(results=results)
     except Exception as e:

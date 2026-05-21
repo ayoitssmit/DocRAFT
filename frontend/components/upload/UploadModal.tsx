@@ -36,6 +36,9 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
 
   const startUpload = async () => {
     const pendingFiles = files.filter((f) => f.status === "pending");
+    
+    // Visually dismiss the modal immediately so processing is fully asynchronous
+    onClose();
 
     for (let i = 0; i < pendingFiles.length; i++) {
       const uploadFile = pendingFiles[i];
@@ -62,6 +65,23 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
           };
           return next;
         });
+
+        // Register active task in localStorage for the sidebar
+        try {
+          const existingStr = localStorage.getItem("docraft_active_tasks") || "[]";
+          const existing = JSON.parse(existingStr);
+          if (!existing.some((t: any) => t.taskId === taskId)) {
+            existing.push({
+              taskId,
+              filename: uploadFile.file.name,
+              status: "processing",
+            });
+            localStorage.setItem("docraft_active_tasks", JSON.stringify(existing));
+            window.dispatchEvent(new Event("docraft_active_tasks_changed"));
+          }
+        } catch (e) {
+          console.error("Failed to register active task:", e);
+        }
 
         // Poll for completion
         pollTaskStatus(fileIndex, taskId);
@@ -110,6 +130,17 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
             };
             return next;
           });
+
+          // Update status in localStorage for the sidebar
+          try {
+            const existingStr = localStorage.getItem("docraft_active_tasks") || "[]";
+            let existing = JSON.parse(existingStr);
+            existing = existing.map((t: any) => t.taskId === taskId ? { ...t, status: "completed" } : t);
+            localStorage.setItem("docraft_active_tasks", JSON.stringify(existing));
+            window.dispatchEvent(new Event("docraft_active_tasks_changed"));
+          } catch (e) {
+            console.error("Failed to update active task status:", e);
+          }
           return;
         }
 
@@ -123,6 +154,17 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
             };
             return next;
           });
+
+          // Update status in localStorage for the sidebar
+          try {
+            const existingStr = localStorage.getItem("docraft_active_tasks") || "[]";
+            let existing = JSON.parse(existingStr);
+            existing = existing.map((t: any) => t.taskId === taskId ? { ...t, status: "failed" } : t);
+            localStorage.setItem("docraft_active_tasks", JSON.stringify(existing));
+            window.dispatchEvent(new Event("docraft_active_tasks_changed"));
+          } catch (e) {
+            console.error("Failed to update active task status:", e);
+          }
           return;
         }
       } catch {
@@ -145,8 +187,6 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
     onClose();
   };
 
-  if (!isOpen) return null;
-
   const hasPending = files.some((f) => f.status === "pending");
 
   return (
@@ -155,7 +195,7 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
         position: "fixed",
         inset: 0,
         zIndex: 1000,
-        display: "flex",
+        display: isOpen ? "flex" : "none",
         alignItems: "center",
         justifyContent: "center",
         background: "rgba(0,0,0,0.6)",

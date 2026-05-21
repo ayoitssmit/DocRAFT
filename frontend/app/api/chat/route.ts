@@ -94,10 +94,35 @@ ${contextBlock}
     messages,
   });
 
-  // Step 5: Return the stream with sources attached as custom headers
-  return result.toTextStreamResponse({
+  const safeSources = sources.map(s => ({
+    ...s,
+    text: s.text
+  }));
+
+  // Step 5: Construct a custom stream containing sources as a prefix inside an HTML comment tag
+  const encoder = new TextEncoder();
+  const customStream = new ReadableStream({
+    async start(controller) {
+      // Stream sources as the very first packet
+      const sourcesPrefix = `<!--SOURCES:${JSON.stringify(safeSources)}-->`;
+      controller.enqueue(encoder.encode(sourcesPrefix));
+
+      // Stream the actual LLM text chunks as they arrive
+      try {
+        for await (const chunk of result.textStream) {
+          controller.enqueue(encoder.encode(chunk));
+        }
+      } catch (err) {
+        controller.error(err);
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(customStream, {
     headers: {
-      "X-Sources": encodeURIComponent(JSON.stringify(sources)),
+      "Content-Type": "text/plain; charset=utf-8",
     },
   });
 }

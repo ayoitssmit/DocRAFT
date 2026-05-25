@@ -373,6 +373,14 @@ body::before {
   color: var(--c-muted);
 }
 
+.markdown-body tr:nth-child(even) {
+  background: rgba(13, 14, 12, 0.03);
+}
+
+.dark .markdown-body tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .markdown-body ul,
 .markdown-body ol {
   padding-left: 20px;

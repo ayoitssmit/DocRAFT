@@ -10,9 +10,95 @@ import rehypeKatex from "rehype-katex";
 import { ImagePreview } from "./ImagePreview";
 import type { QueryResult } from "@/lib/api";
 
+function preprocessLaTeX(text: string): string {
+  if (!text) return "";
+
+  // Normalize circumflex modifier "ˆ" to standard LaTeX "\hat"
+  let processed = text.replace(/ˆ{([^}]+)}/g, '\\hat{$1}');
+  processed = processed.replace(/ˆ([a-zA-Z0-9])/g, '\\hat{$1}');
+
+  // Targeted plain text math normalizations (e.g. from raw document text)
+  processed = processed.replace(/ˆ\s*c\s*attr/g, '$\\hat{c}_{attr}$');
+  processed = processed.replace(/\bc\s+attr/g, '$c_{attr}$');
+  processed = processed.replace(/ˆ\s*x\s*t/g, '$\\hat{x}_t$');
+  processed = processed.replace(/ˆ\s*x\s*T/g, '$\\hat{x}_T$');
+  processed = processed.replace(/\bx\s+T\b/g, '$x_T$');
+  processed = processed.replace(/\bz\s+t\b/g, '$z_t$');
+  processed = processed.replace(/\bx\s+t\b/g, '$x_t$');
+  processed = processed.replace(/λ\s*cfg/g, '$\\lambda_{cfg}$');
+  processed = processed.replace(/λ\s*{cfg}/g, '$\\lambda_{cfg}$');
+
+  // 1. First, replace standard block math delimiters: \[ ... \] -> $$...$$
+  processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (_, equation) => {
+    return `$$\n${equation.trim()}\n$$`;
+  });
+
+  // 2. Replace standard inline math delimiters: \( ... \) -> $...$
+  processed = processed.replace(/\\\(([\s\S]*?)\\\)/g, (_, equation) => {
+    return `$${equation.trim()}$`;
+  });
+
+  // 3. Replace [ ... ] that is clearly block math:
+  // E.g., [ ˆ{x}t = x_t + λ{cfg} \nabla_x E\left( ˆ{c}{attr}, x_t, t \right) ]
+  processed = processed.replace(/(?:^|\s)\[\s*([^\]\n]+?)\s*\](?:\s|$)/g, (match, content) => {
+    const hasMathSymbols = /\\|[\+\-\*=<>_^{}\\]|\\nabla|\\left|\\right|λ|lambda/i.test(content);
+    const isRegularText = /^[a-zA-Z\s,.'"]+$/.test(content);
+    if (hasMathSymbols && !isRegularText) {
+      const normalized = content.replace(/λ/g, '\\lambda');
+      return `\n$$\n${normalized.trim()}\n$$\n`;
+    }
+    return match;
+  });
+
+  // 4. Replace ( ... ) that is clearly inline math:
+  // E.g. ( \nabla_x E\left( ˆ{c}_{attr}, x_t, t \right) ), ( x_T ), ( z_t ), ( t ), ( λ_{cfg} )
+  processed = processed.replace(/(?:^|\s)\(\s*([^\)\n]+?)\s*\)(?:\s|$)/g, (match, content) => {
+    const trimmed = content.trim();
+    
+    const hasBackslash = trimmed.includes('\\');
+    const hasMathOperators = /^[a-zA-Z0-9\s_+=\-^*/<>ˆ{}]*$/.test(trimmed) && /[_^ˆ{}=]/.test(trimmed);
+    const isSingleVariable = /^[a-zA-Z]$/.test(trimmed);
+    const hasGreekLetter = /[λθπσΩΔΦαβγδε]/.test(trimmed);
+    
+    const isCommonEnglishPhrase = /^(e\.g\.|i\.e\.|etc\.|and|or|a|an|the|to|in|of|for|on|with|at|by|from)\b/i.test(trimmed);
+    const hasManyWords = trimmed.split(/\s+/).length > 5;
+    
+    if ((hasBackslash || hasMathOperators || isSingleVariable || hasGreekLetter) && !isCommonEnglishPhrase && !hasManyWords) {
+      const normalized = trimmed.replace(/λ/g, '\\lambda');
+      return ` $${normalized}$ `;
+    }
+    
+    return match;
+  });
+
+  return processed;
+}
+
 function preprocessText(text: string) {
   if (!text) return "";
-  let processed = text;
+  
+  // 1. Strip OCR blocks enclosed in custom <!-- OCR_START --> ... <!-- OCR_END --> comments
+  let processed = text.replace(/<!--\s*OCR_START\s*-->[\s\S]*?<!--\s*OCR_END\s*-->/gi, '').trim();
+  
+  // 2. Omit "Extracted Text:" (internal OCR) from the displayed sources
+  processed = processed.replace(/Extracted Text:[\s\S]*?$/i, '').trim();
+  
+  // 3. Fallback: Remove raw OCR code blocks for legacy indexed documents (lists of numbers, confusion matrices, or short single-value lines)
+  processed = processed.replace(/```[\s\S]*?```/g, (match) => {
+    const content = match.slice(3, -3).trim();
+    const commaCount = (content.match(/,/g) || []).length;
+    const digitCount = (content.match(/\d/g) || []).length;
+    const letterCount = (content.match(/[a-zA-Z]/g) || []).length;
+    
+    // If it has lots of commas or digits compared to letters, or has lines with single letters/numbers (confusion matrix style), it is OCR!
+    if (commaCount > 10 || (digitCount > 20 && letterCount < 20) || content.split('\n').every(line => line.trim().length < 8)) {
+      return ""; // Strip it completely!
+    }
+    return match;
+  });
+  
+  // If the entire text was OCR and is now empty, return empty
+  if (!processed.trim()) return "";
   
   // (a) normalize multi-space-padded pipe table cells by collapsing internal whitespace
   // (b) ensure every pipe table has a valid separator row
@@ -49,7 +135,7 @@ function preprocessText(text: string) {
       resultLines.push(line);
     }
   }
-  return resultLines.join('\n');
+  return preprocessLaTeX(resultLines.join('\n'));
 }
 
 interface SourceCardProps {

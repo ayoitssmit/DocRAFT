@@ -16,6 +16,61 @@ from .config import CHUNK_SIZE, CHUNK_OVERLAP
 logger = logging.getLogger(__name__)
 
 
+def split_into_blocks(markdown: str) -> list[str]:
+    lines = markdown.split("\n")
+    blocks = []
+    
+    table_regex = re.compile(r"^\s*\|")
+    caption_regex = re.compile(r"(?i)^\s*(figure\s+\d+|fig\.\s*\d+)")
+    
+    current_text_block = []
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if table_regex.match(line):
+            if current_text_block:
+                blocks.append("\n".join(current_text_block))
+                current_text_block = []
+                
+            table_lines = []
+            while i < len(lines) and table_regex.match(lines[i]):
+                table_lines.append(lines[i])
+                i += 1
+                
+            ahead_idx = i
+            blank_lines = 0
+            found_caption = False
+            while ahead_idx < len(lines):
+                if not lines[ahead_idx].strip():
+                    blank_lines += 1
+                    if blank_lines > 2:
+                        break
+                    ahead_idx += 1
+                elif caption_regex.match(lines[ahead_idx]):
+                    found_caption = True
+                    break
+                else:
+                    break
+                    
+            if found_caption:
+                while i <= ahead_idx:
+                    table_lines.append(lines[i])
+                    i += 1
+                    
+            blocks.append("\n".join(table_lines))
+            continue
+            
+        else:
+            current_text_block.append(line)
+            i += 1
+            
+    if current_text_block:
+        blocks.append("\n".join(current_text_block))
+        
+    return blocks
+
+
 class MarkdownChunker:
     """Chunks Markdown text into heading-aware nodes using LlamaIndex."""
 
@@ -32,41 +87,39 @@ class MarkdownChunker:
     ) -> list[TextNode]:
         """
         Split a Markdown string into heading-aware chunks.
-
-        Each chunk inherits metadata from the source document and gets
-        additional heading context from the parser.
-
-        Args:
-            markdown: Raw Markdown text to chunk.
-            metadata: Optional metadata dict to attach to every chunk
-                      (e.g., source_file, converted_at).
-
-        Returns:
-            List of LlamaIndex TextNode objects with text and metadata.
         """
-        doc = Document(text=markdown, metadata=metadata or {})
-        initial_nodes = self.parser.get_nodes_from_documents([doc])
-        
-        # Second pass: ensure no chunk exceeds the size limit
+        metadata = metadata or {}
+        blocks = split_into_blocks(markdown)
         final_nodes = []
-        table_regex = re.compile(r"^\s*\||^\s*[-|]+$", re.MULTILINE)
-        for node in initial_nodes:
-            # Strictly split if character count exceeds CHUNK_SIZE
-            # (Roughly 1 char = 1-4 tokens, 1024 chars is safe for almost any model)
-            if table_regex.search(node.text):
+        table_regex = re.compile(r"^\s*\|")
+
+        for block in blocks:
+            if table_regex.match(block):
+                # Table block: store directly
+                node = TextNode(text=block, metadata=metadata.copy())
                 final_nodes.append(node)
-            elif len(node.text) > self.sub_chunker.chunk_size:
-                sub_nodes = self.sub_chunker.get_nodes_from_documents([node])
-                # Transfer metadata from parent node
-                for sub_node in sub_nodes:
-                    sub_node.metadata.update(node.metadata)
-                final_nodes.extend(sub_nodes)
             else:
-                final_nodes.append(node)
+                # Text block: pass through normal pipeline
+                doc = Document(text=block, metadata=metadata.copy())
+                initial_nodes = self.parser.get_nodes_from_documents([doc])
+                for node in initial_nodes:
+                    if len(node.text) > self.sub_chunker.chunk_size:
+                        sub_nodes = self.sub_chunker.get_nodes_from_documents([node])
+                        for sub_node in sub_nodes:
+                            sub_node.metadata.update(node.metadata)
+                        final_nodes.extend(sub_nodes)
+                    else:
+                        final_nodes.append(node)
+
+        # Add chunk index and total chunks to metadata
+        total = len(final_nodes)
+        for i, node in enumerate(final_nodes):
+            node.metadata["chunk_index"] = i
+            node.metadata["total_chunks"] = total
 
         logger.info(
-            f"Chunked document into {len(final_nodes)} nodes (structural: {len(initial_nodes)}) "
-            f"(source: {metadata.get('source_file', 'unknown') if metadata else 'unknown'})"
+            f"Chunked document into {total} nodes "
+            f"(source: {metadata.get('source_file', 'unknown')})"
         )
 
         return final_nodes

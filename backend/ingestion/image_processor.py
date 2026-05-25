@@ -10,6 +10,28 @@ from .config import IMAGE_OUTPUT_DIR, VISION_MODEL
 
 logger = logging.getLogger(__name__)
 
+# Minimum pixel dimensions for an image to be worth analysing.
+# Anything smaller is typically a logo, bullet icon, or decorative element.
+_MIN_IMAGE_PX = 100
+
+# Substrings that indicate the vision model returned a meta/refusal response
+# rather than an actual description of the image content.
+_LOW_QUALITY_PHRASES = (
+    "too small to discern",
+    "too small to identify",
+    "too small to determine",
+    "please upload",
+    "if you have an image",
+    "i cannot see",
+    "i can't see",
+    "no image",
+    "image is not visible",
+    "no visible content",
+    "cannot provide a description",
+    "unable to identify",
+    "unable to describe",
+)
+
 class ImageIntelligence:
     """
     Handles image extraction, OCR, and Vision AI descriptions.
@@ -21,6 +43,7 @@ class ImageIntelligence:
         
         # Initialize OCR engine (RapidOCR)
         try:
+            # pyrefly: ignore [missing-import]
             from rapidocr_onnxruntime import RapidOCR
             # We assume GPU is used if the user installed the right onnxruntime
             self.ocr_engine = RapidOCR()
@@ -71,11 +94,26 @@ class ImageIntelligence:
     def analyze_image(self, img_info: Dict[str, Any]) -> Dict[str, Any]:
         """
         PASS 2: Run OCR and Vision AI on a single image.
-        Images are downscaled to 512px before Vision AI for speed.
+        Images below _MIN_IMAGE_PX in either dimension are skipped — they are
+        typically icons or decorative elements that add no retrieval value.
         """
         pil_img = img_info["pil_image"]
         idx = img_info["index"]
         page_no = img_info["page"]
+        w, h = pil_img.size
+
+        # Skip tiny images entirely — vision models cannot describe them
+        # meaningfully and tend to return meta/refusal responses.
+        if w < _MIN_IMAGE_PX or h < _MIN_IMAGE_PX:
+            logger.info(
+                f"Skipping image {idx} (page {page_no}): too small ({w}x{h}px)."
+            )
+            return {
+                **img_info,
+                "description": "",
+                "ocr_text": "",
+                "combined_text": "",
+            }
 
         # 1. OCR (runs on the full-res image for accuracy)
         ocr_text = ""
@@ -89,13 +127,12 @@ class ImageIntelligence:
             except Exception as e:
                 logger.error(f"OCR failed for image {idx}: {e}")
 
-        # 2. Vision AI (runs on larger downscaled image for better detail)
-        # Pass OCR text to help the AI be more precise
+        # 2. Vision AI (runs on a downscaled copy for speed)
         small_img = self._downscale(pil_img, max_px=768)
         description = self._get_vision_description(small_img, ocr_text=ocr_text)
 
-        # 3. Combine
-        combined_text = f"Image from page {page_no}. Description: {description}"
+        # 3. Build combined text — sanitize OCR noise before storing.
+        sanitized_ocr = ""
         if not str(idx).startswith("tab_") and ocr_text:
             sanitized_lines = []
             for line in ocr_text.split("\n"):
@@ -105,47 +142,69 @@ class ImageIntelligence:
                 if line.isalnum() and " " not in line:
                     continue
                 sanitized_lines.append(line)
-            
             sanitized_ocr = "\n".join(sanitized_lines)
-            if sanitized_ocr:
-                combined_text += f"\nExtracted Text: {sanitized_ocr}"
+
+        combined_parts = []
+        if description:
+            combined_parts.append(f"Image from page {page_no}. {description}")
+        if sanitized_ocr:
+            combined_parts.append(f"Extracted Text: {sanitized_ocr}")
+        combined_text = "\n".join(combined_parts)
 
         return {
             **img_info,
             "description": description,
             "ocr_text": ocr_text,
-            "combined_text": combined_text
+            "combined_text": combined_text,
         }
 
     def _get_vision_description(self, pil_img: Image.Image, ocr_text: str = "") -> str:
         """
-        Calls Ollama Vision model to describe the image, aided by OCR context.
+        Calls the Ollama Vision model to describe the image.
+        Returns an empty string when the model produces a meta/refusal response
+        (e.g. "image too small") so that nothing leaks into the indexed content.
         """
         try:
             buffered = io.BytesIO()
             pil_img.save(buffered, format="PNG")
             img_bytes = buffered.getvalue()
 
-            # Add OCR context if available
-            context_snippet = f"\n\nCONTEXT (Extracted Text from Image):\n{ocr_text}" if ocr_text else ""
+            context_snippet = (
+                f"\n\nText already extracted from this image via OCR:\n{ocr_text}"
+                if ocr_text
+                else ""
+            )
 
             response = ollama.generate(
                 model=VISION_MODEL,
                 prompt=(
-                    "Analyze this technical document image in detail. "
-                    "Identify its type (e.g., architecture diagram, flowchart, chart, table). "
-                    "Describe the key components, technical labels, and how they relate. "
-                    "Explain the core technical information being communicated."
+                    "You are analyzing an image extracted from a technical PDF document. "
+                    "Describe only what you can actually see. "
+                    "State the image type (e.g. architecture diagram, flowchart, graph, "
+                    "table, screenshot) and describe the key components, labels, and "
+                    "relationships shown. Be concise and factual. "
+                    "Do not ask for clarification or mention this prompt."
                     f"{context_snippet}"
                 ),
                 images=[img_bytes],
                 stream=False,
-                options={"num_predict": 512}
+                options={"num_predict": 512},
             )
-            return response.get("response", "No description generated.")
+            raw = response.get("response", "").strip()
+
+            # Discard responses that are model meta-commentary rather than
+            # actual image descriptions.
+            if not raw:
+                return ""
+            lower = raw.lower()
+            if any(phrase in lower for phrase in _LOW_QUALITY_PHRASES):
+                logger.info("Vision model returned a low-quality response; discarding.")
+                return ""
+
+            return raw
         except Exception as e:
             logger.error(f"Vision AI failed: {e}")
-            return "Error generating AI description."
+            return ""
 
     def inject_images_into_markdown(self, markdown: str, processed_images: List[Dict[str, Any]]) -> str:
         """
@@ -164,29 +223,48 @@ class ImageIntelligence:
         # Sort pictures by their original index (e.g. pic_0, pic_1)
         pictures.sort(key=lambda x: int(str(x["index"]).split("_")[1]))
         
-        # Replace <!-- image --> sequentially
+        # Replace <!-- image --> tags sequentially.
+        # If the image has no useful description and no OCR text, the placeholder
+        # tag is removed silently rather than injecting an empty or unhelpful block.
         def repl(match):
             if pictures:
                 img = pictures.pop(0)
+                description = img.get("description", "").strip()
+                ocr_text = img.get("ocr_text", "").strip()
+
+                # Nothing useful to inject — remove the tag silently.
+                if not description and not ocr_text:
+                    return ""
+
                 rel_path = Path(img["path"]).relative_to(self.output_base.parent.parent)
-                injection = f"\n\n**[Image {img['index']} (Page {img['page']})]**\n"
-                injection += f"![{img['index']}]({rel_path})\n\n"
-                injection += f"**AI Description:**\n{img['description']}\n"
-                if img["ocr_text"]:
-                    injection += f"\n**Extracted Text:**\n```\n{img['ocr_text']}\n```\n"
+                injection = f"\n\n**Figure (Page {img['page']})**\n"
+                injection += f"![Figure page {img['page']}]({rel_path})\n"
+                if description:
+                    injection += f"\n{description}\n"
+                if ocr_text:
+                    injection += f"\n<!-- OCR_START -->\n```\n{ocr_text}\n```\n<!-- OCR_END -->\n"
                 return injection
-            return match.group(0) # No more pictures to inject, leave the tag
-            
-        # Docling usually outputs <!-- image -->
+            return ""  # No matching picture — remove the orphan tag.
+
+        # Docling outputs <!-- image --> as placeholder tags.
         markdown = re.sub(r'<!-- image -->', repl, markdown)
-        
-        # For tables, we just append them as an appendix
-        if tables:
-            markdown += "\n\n--- \n## Complex Table AI Analysis\n"
-            for img in tables:
+
+        # Append table analyses only when there is something meaningful to show.
+        useful_tables = [
+            t for t in tables
+            if t.get("description", "").strip() or t.get("ocr_text", "").strip()
+        ]
+        if useful_tables:
+            markdown += "\n\n---\n## Supplementary Table Analysis\n"
+            for img in useful_tables:
+                description = img.get("description", "").strip()
+                ocr_text = img.get("ocr_text", "").strip()
                 rel_path = Path(img["path"]).relative_to(self.output_base.parent.parent)
-                markdown += f"\n### Table {img['index']} (Page {img['page']})\n"
-                markdown += f"![{img['index']}]({rel_path})\n\n"
-                markdown += f"**AI Description:**\n{img['description']}\n"
-                    
+                markdown += f"\n### Table (Page {img['page']})\n"
+                markdown += f"![Table page {img['page']}]({rel_path})\n"
+                if description:
+                    markdown += f"\n{description}\n"
+                if ocr_text:
+                    markdown += f"\n<!-- OCR_START -->\n```\n{ocr_text}\n```\n<!-- OCR_END -->\n"
+
         return markdown

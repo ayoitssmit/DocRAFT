@@ -2,6 +2,8 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { SourceCard } from "@/components/chat/SourceCard";
 import { ImagePreview } from "./ImagePreview";
 import type { QueryResult } from "@/lib/api";
@@ -71,7 +73,8 @@ export function MessageBubble({ role, content, sources }: MessageBubbleProps) {
           ) : (
             <div className="markdown-body">
               <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
                 components={{
                   img: (props: any) => {
                     const { src, alt } = props;

@@ -169,6 +169,7 @@ def run_ingestion(
                 # Store for embedding later
                 image_points_payloads.append({
                     "combined_text": enriched_img["combined_text"],
+                    "display_text": enriched_img.get("display_text", enriched_img["combined_text"]),
                     "source_file": doc["filename"],
                     "image_path": enriched_img["path"],
                     "page_no": enriched_img["page"],
@@ -270,6 +271,7 @@ def run_ingestion(
                         vector=img_embedding,
                         payload={
                             "text": payload["combined_text"],
+                            "display_text": payload.get("display_text", payload["combined_text"]),
                             "source_file": payload["source_file"],
                             "source_document": original_filename if original_filename else Path(payload["source_file"]).name,
                             "content_type": "image",

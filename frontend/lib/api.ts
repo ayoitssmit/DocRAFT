@@ -12,6 +12,7 @@ export interface QueryResult {
   id: string;
   score: number;
   text: string;
+  display_text?: string;
   filename?: string;
   source_document?: string;
   image_path?: string;

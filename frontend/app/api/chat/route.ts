@@ -81,6 +81,7 @@ Your behavior:
 - Format responses using Markdown: use headers, bullet points, code blocks, and tables where appropriate.
 - Be precise, technical, and concise. Avoid filler language.
 - When presenting tabular data from the context, preserve the table format.
+- When expressing any mathematical formula, equation, or symbol from the context, always wrap inline math in single dollar signs ($...$) and display/block equations in double dollar signs ($$...$$). Never output raw LaTeX commands without delimiters. For example: write $x_t$ not x_t, and $$\nabla_x E\left(\hat{c}^{attr}, x_t, t\right)$$ not the raw command string.
 
 --- Retrieved Context ---
 ${contextBlock}
@@ -103,8 +104,9 @@ ${contextBlock}
   const encoder = new TextEncoder();
   const customStream = new ReadableStream({
     async start(controller) {
-      // Stream sources as the very first packet
-      const sourcesPrefix = `<!--SOURCES:${JSON.stringify(safeSources)}-->`;
+      // Stream sources as the very first packet (base64 encoded to avoid delimiter collision in document text)
+      const base64Sources = Buffer.from(JSON.stringify(safeSources)).toString("base64");
+      const sourcesPrefix = `<!--SOURCES:${base64Sources}-->`;
       controller.enqueue(encoder.encode(sourcesPrefix));
 
       // Stream the actual LLM text chunks as they arrive

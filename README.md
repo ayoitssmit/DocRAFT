@@ -36,7 +36,7 @@ PDF ingestion is handled **asynchronously** via FastAPI background tasks. When y
 | Capability | Technology |
 |---|---|
 | Layout-aware PDF parsing | Docling `DocumentConverter` |
-| Semantic chunking | LlamaIndex `MarkdownNodeParser` + `SentenceSplitter` |
+| Semantic chunking | LlamaIndex `MarkdownNodeParser` + `SentenceSplitter` (Optimized to **1500-char** limit) |
 | Dense vector embeddings | Ollama `nomic-embed-text` (768-dim) |
 | Vector storage & retrieval | Qdrant (local disk or Docker) |
 | Vision / diagram analysis | Ollama `granite3.2-vision:2b` |
@@ -46,12 +46,17 @@ PDF ingestion is handled **asynchronously** via FastAPI background tasks. When y
 | API layer | FastAPI + Uvicorn |
 | Frontend | Next.js 16 + Tailwind CSS 4 |
 | GPU acceleration | CUDA 12.4 via PyTorch |
+| Mathematical typesetting | **KaTeX / rehype-katex / remark-math** (Full LaTeX support) |
 
-**Key design principles:**
+**Key design principles & features:**
 
 - **Multimodal Ingestion** — Extracts text, tables, figures, and embedded diagrams from PDFs with high structural fidelity.
 - **Vision Intelligence** — Automatically describes architectural diagrams and charts using Ollama Vision models, making visual content searchable.
-- **OCR-Augmented Retrieval** — RapidOCR extracts technical labels and annotations from image regions, enriching the knowledge base beyond raw PDF text.
+- **OCR-Augmented Retrieval & Smart Hiding** — RapidOCR extracts technical labels from image regions. To ensure clean visual presentation, these raw OCR dumps are wrapped in special `<!-- OCR_START -->` comments so the **AI model retains 100% accuracy** from the text inside images, while the **frontend dynamically filters them out** to keep source citation cards perfectly clean.
+- **LaTeX Mathematical Typesetting** — Full KaTeX support inside both chat bubbles and document source preview cards. Features a robust preprocessor that normalizes raw PDF text formatting, bracket styles (e.g., `( \nabla_x ... )`, `[ ... ]`), and raw variables (e.g., `x T` $\rightarrow$ `$x_T$`, `λ` $\rightarrow$ `\lambda`) on the fly, eliminating compiler warnings.
+- **Optimized 1500-Char Chunking** — Upgraded from 512 to 1500 characters (150 overlap). This optimal layout guarantees that complex technical tables, diagrams, and paragraphs remain whole and are never cut off in the middle of a row or sentence.
+- **Base64 Sources Streaming** — Prevents character collision (e.g. arrow notation `-->` inside document text) by base64-encoding the retrieval sources prefix packet. The Next.js frontend safely decodes and renders this on the fly.
+- **Non-Blocking State Updates** — Suspends background session auto-saves during active streaming to prevent state-cascade infinite loops, ensuring 100% stable, buttery-smooth text generation.
 - **Non-Blocking Uploads** — The `/upload` endpoint returns immediately with a task ID. Ingestion runs in the background, allowing multiple documents to be queued without blocking the API.
 - **Local-First Architecture** — No external API calls. All inference, embedding, and storage runs on your own hardware via Ollama and local Qdrant.
 - **GPU Accelerated** — Optimized for NVIDIA hardware with CUDA-enabled PyTorch for fast ingestion and vision inference.

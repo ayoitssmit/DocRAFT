@@ -402,3 +402,6 @@ body::before {
   padding: 1px 3px;
   border-radius: 3px;
 }
+
+.markdown-body .katex-display { overflow-x: auto; margin: 12px 0; }
+.markdown-body .katex { font-size: 1em; }

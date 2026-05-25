@@ -4,7 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronUp, FileText, Image } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import rehypeRaw from "rehype-raw";
+import rehypeKatex from "rehype-katex";
 import { ImagePreview } from "./ImagePreview";
 import type { QueryResult } from "@/lib/api";
 
@@ -12,10 +14,6 @@ function preprocessText(text: string) {
   if (!text) return "";
   let processed = text;
   
-  // (c) strip any $$...$$ or $...$ LaTeX math delimiters
-  processed = processed.replace(/\$\$(.*?)\$\$/g, '$1');
-  processed = processed.replace(/\$(.*?)\$/g, '$1');
-
   // (a) normalize multi-space-padded pipe table cells by collapsing internal whitespace
   // (b) ensure every pipe table has a valid separator row
   const lines = processed.split('\n');
@@ -198,8 +196,8 @@ export function SourceCard({ source, index }: SourceCardProps) {
             >
               <div className="markdown-body" style={{ overflowX: "auto" }}>
                 <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeRaw, rehypeKatex]}
                   components={{
                     img: (props: any) => {
                       const { src, alt } = props;
@@ -212,7 +210,7 @@ export function SourceCard({ source, index }: SourceCardProps) {
                     }
                   }}
                 >
-                  {preprocessText(source.text)}
+                  {preprocessText(source.display_text || source.text)}
                 </ReactMarkdown>
               </div>
               {!textExpanded && isOverflowing && (

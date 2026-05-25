@@ -4,6 +4,7 @@ Splits Markdown documents into heading-aware chunks using MarkdownNodeParser.
 """
 
 import logging
+import re
 from typing import Any
 
 from llama_index.core import Document
@@ -48,10 +49,13 @@ class MarkdownChunker:
         
         # Second pass: ensure no chunk exceeds the size limit
         final_nodes = []
+        table_regex = re.compile(r"^\s*\||^\s*[-|]+$", re.MULTILINE)
         for node in initial_nodes:
             # Strictly split if character count exceeds CHUNK_SIZE
             # (Roughly 1 char = 1-4 tokens, 1024 chars is safe for almost any model)
-            if len(node.text) > self.sub_chunker.chunk_size:
+            if table_regex.search(node.text):
+                final_nodes.append(node)
+            elif len(node.text) > self.sub_chunker.chunk_size:
                 sub_nodes = self.sub_chunker.get_nodes_from_documents([node])
                 # Transfer metadata from parent node
                 for sub_node in sub_nodes:

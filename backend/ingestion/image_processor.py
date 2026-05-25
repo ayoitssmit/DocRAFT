@@ -188,7 +188,5 @@ class ImageIntelligence:
                 markdown += f"\n### Table {img['index']} (Page {img['page']})\n"
                 markdown += f"![{img['index']}]({rel_path})\n\n"
                 markdown += f"**AI Description:**\n{img['description']}\n"
-                if img["ocr_text"]:
-                    markdown += f"\n**Extracted Text:**\n```\n{img['ocr_text']}\n```\n"
                     
         return markdown

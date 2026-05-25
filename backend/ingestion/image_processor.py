@@ -96,8 +96,19 @@ class ImageIntelligence:
 
         # 3. Combine
         combined_text = f"Image from page {page_no}. Description: {description}"
-        if ocr_text:
-            combined_text += f"\nExtracted Text: {ocr_text}"
+        if not str(idx).startswith("tab_") and ocr_text:
+            sanitized_lines = []
+            for line in ocr_text.split("\n"):
+                line = line.strip()
+                if len(line) < 3:
+                    continue
+                if line.isalnum() and " " not in line:
+                    continue
+                sanitized_lines.append(line)
+            
+            sanitized_ocr = "\n".join(sanitized_lines)
+            if sanitized_ocr:
+                combined_text += f"\nExtracted Text: {sanitized_ocr}"
 
         return {
             **img_info,

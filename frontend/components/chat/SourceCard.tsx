@@ -4,8 +4,55 @@ import { useState, useRef, useEffect } from "react";
 import { ChevronDown, ChevronUp, FileText, Image } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { ImagePreview } from "./ImagePreview";
 import type { QueryResult } from "@/lib/api";
+
+function preprocessText(text: string) {
+  if (!text) return "";
+  let processed = text;
+  
+  // (c) strip any $$...$$ or $...$ LaTeX math delimiters
+  processed = processed.replace(/\$\$(.*?)\$\$/g, '$1');
+  processed = processed.replace(/\$(.*?)\$/g, '$1');
+
+  // (a) normalize multi-space-padded pipe table cells by collapsing internal whitespace
+  // (b) ensure every pipe table has a valid separator row
+  const lines = processed.split('\n');
+  const resultLines = [];
+  let inTable = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim().startsWith('|')) {
+      let normLine = line.split('|').map(cell => {
+        if (cell.trim() === '') return cell;
+        return ' ' + cell.trim().replace(/\s+/g, ' ') + ' ';
+      }).join('|');
+      
+      normLine = normLine.trim();
+      if (normLine.startsWith(' |')) normLine = '|' + normLine.slice(2);
+      if (normLine.endsWith('| ')) normLine = normLine.slice(0, -2) + '|';
+      
+      resultLines.push(normLine);
+      
+      if (!inTable) {
+        inTable = true;
+        const nextLine = lines[i+1] || "";
+        const isSeparator = nextLine.trim().startsWith('|') && /^[\s|:*-]+$/.test(nextLine.trim());
+        if (!isSeparator) {
+          const cols = normLine.split('|').length - 2; 
+          const sepCols = Math.max(1, cols);
+          resultLines.push('|' + '---|'.repeat(sepCols));
+        }
+      }
+    } else {
+      inTable = false;
+      resultLines.push(line);
+    }
+  }
+  return resultLines.join('\n');
+}
 
 interface SourceCardProps {
   source: QueryResult;
@@ -13,26 +60,38 @@ interface SourceCardProps {
 }
 
 export function SourceCard({ source, index }: SourceCardProps) {
-  const [expanded, setExpanded] = useState(false);
-  const [textExpanded, setTextExpanded] = useState(false);
-  const [isOverflowing, setIsOverflowing] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (expanded && containerRef.current) {
-      // Truncate only if natural height is more than 200px (160px limit + 40px threshold)
-      const hasOverflow = containerRef.current.scrollHeight > 200;
-      setIsOverflowing(hasOverflow);
-    } else {
-      setIsOverflowing(false);
-    }
-  }, [expanded, source.text]);
-
   const docName =
     source.source_document || source.filename || "unknown";
   const score = source.score?.toFixed(3) || "N/A";
   const contentType = source.content_type || "text";
   const isImage = contentType === "image";
+
+  const [expanded, setExpanded] = useState(false);
+  const [textExpanded, setTextExpanded] = useState(isImage);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!expanded || !containerRef.current) {
+      setIsOverflowing(false);
+      return;
+    }
+
+    const checkOverflow = () => {
+      if (containerRef.current) {
+        setIsOverflowing(containerRef.current.scrollHeight > 200);
+      }
+    };
+
+    checkOverflow(); // Initial check
+
+    const observer = new ResizeObserver(() => {
+      checkOverflow();
+    });
+    observer.observe(containerRef.current);
+
+    return () => observer.disconnect();
+  }, [expanded, source.text]);
 
   return (
     <div
@@ -137,9 +196,10 @@ export function SourceCard({ source, index }: SourceCardProps) {
                 transition: "max-height 0.3s ease",
               }}
             >
-              <div className="markdown-body">
+              <div className="markdown-body" style={{ overflowX: "auto" }}>
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
                   components={{
                     img: (props: any) => {
                       const { src, alt } = props;
@@ -152,7 +212,7 @@ export function SourceCard({ source, index }: SourceCardProps) {
                     }
                   }}
                 >
-                  {source.text}
+                  {preprocessText(source.text)}
                 </ReactMarkdown>
               </div>
               {!textExpanded && isOverflowing && (

@@ -137,14 +137,14 @@ export function MessageBubble({ role, content, sources }: MessageBubbleProps) {
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[rehypeKatex]}
               components={{
-                p: (props: any) => <p style={{ margin: 0, color: isUser ? "white" : "inherit" }} {...props} />,
+                p: (props: any) => <div className="markdown-p" style={{ margin: 0, marginBottom: "0.5em", color: isUser ? "white" : "inherit" }} {...props} />,
                 img: (props: any) => {
                   const { src, alt } = props;
                   if (!src) return null;
                   return (
-                    <div style={{ marginTop: 8, marginBottom: 8 }}>
+                    <span style={{ display: "block", marginTop: 8, marginBottom: 8 }}>
                       <ImagePreview imagePath={src} alt={typeof alt === "string" ? alt : "Image"} />
-                    </div>
+                    </span>
                   );
                 }
               }}

@@ -285,13 +285,14 @@ export function SourceCard({ source, index }: SourceCardProps) {
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeRaw, rehypeKatex]}
                   components={{
+                    p: (props: any) => <div className="markdown-p" style={{ margin: 0, marginBottom: "0.5em" }} {...props} />,
                     img: (props: any) => {
                       const { src, alt } = props;
                       if (!src) return null;
                       return (
-                        <div style={{ marginTop: 8, marginBottom: 8 }}>
+                        <span style={{ display: "block", marginTop: 8, marginBottom: 8 }}>
                           <ImagePreview imagePath={src} alt={typeof alt === "string" ? alt : "Image"} />
-                        </div>
+                        </span>
                       );
                     }
                   }}

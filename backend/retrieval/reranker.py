@@ -118,8 +118,23 @@ class DocRAFTReranker:
         # Build input pairs
         pairs = [(query, passage) for passage in passages]
         
-        # Predict relevance scores (returns numpy float values or float array)
-        scores = self._model.predict(pairs)
+        # Predict relevance scores with dynamic self-healing fallback to CPU if CUDA encounters runtime issues
+        try:
+            scores = self._model.predict(pairs)
+        except Exception as e:
+            if self.device == "cuda" or "cuda" in str(e).lower() or "device" in str(e).lower():
+                logger.error(f"[Reranker] CUDA error during prediction: {e}. Attempting self-healing fallback to CPU...")
+                try:
+                    self.device = "cpu"
+                    from sentence_transformers import CrossEncoder  # noqa: PLC0415
+                    self._model = CrossEncoder(self.model_name, device="cpu")
+                    scores = self._model.predict(pairs)
+                    logger.info("[Reranker] ✓ Self-healing complete. Successfully processed query on CPU.")
+                except Exception as cpu_err:
+                    logger.error(f"[Reranker] CPU fallback failed: {cpu_err}")
+                    raise cpu_err
+            else:
+                raise e
         
         # Zip with index, convert scores to python float for serialization
         indexed_scores = [(idx, float(score)) for idx, score in enumerate(scores)]

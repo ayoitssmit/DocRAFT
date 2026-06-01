@@ -28,7 +28,7 @@ export function ImagePreview({ imagePath, alt }: ImagePreviewProps) {
 
   if (error) {
     return (
-      <div
+      <span
         style={{
           display: "flex",
           alignItems: "center",
@@ -45,13 +45,14 @@ export function ImagePreview({ imagePath, alt }: ImagePreviewProps) {
       >
         <ImageOff size={16} />
         Image unavailable
-      </div>
+      </span>
     );
   }
 
   return (
-    <div
+    <span
       style={{
+        display: "block",
         borderRadius: "var(--radius-sm)",
         overflow: "hidden",
         border: "1px solid var(--c-border)",
@@ -69,8 +70,9 @@ export function ImagePreview({ imagePath, alt }: ImagePreviewProps) {
           display: "block",
         }}
       />
-      <div
+      <span
         style={{
+          display: "block",
           padding: "8px 12px",
           fontSize: 10,
           fontFamily: "var(--font-mono)",
@@ -79,7 +81,7 @@ export function ImagePreview({ imagePath, alt }: ImagePreviewProps) {
         }}
       >
         {filename}
-      </div>
-    </div>
+      </span>
+    </span>
   );
 }

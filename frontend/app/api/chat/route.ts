@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   try {
     const queryBody: Record<string, unknown> = {
       query: lastUserMessage,
-      limit: 5,
+      limit: 3,
     };
     if (documentFilter) {
       queryBody.document_filter = documentFilter;
@@ -66,7 +66,8 @@ export async function POST(req: Request) {
             const docName = s.source_document || s.filename || "unknown";
             const scoreStr = s.score?.toFixed(3) || "N/A";
             const contentType = s.content_type || "text";
-            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${s.text}`;
+            const cappedText = s.text.length > 600 ? s.text.substring(0, s.text.lastIndexOf(" ", 600)) + "..." : s.text;
+            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${cappedText}`;
           })
           .join("\n\n---\n\n")
       : "No relevant documents found in the knowledge base.";
@@ -93,6 +94,9 @@ ${contextBlock}
     model: ollama(MODEL_NAME),
     system: systemPrompt,
     messages,
+    experimental_providerMetadata: {
+      ollama: { options: { num_ctx: 4096 } },
+    },
   });
 
   const safeSources = sources.map(s => ({

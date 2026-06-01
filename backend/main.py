@@ -60,7 +60,7 @@ doc_reranker: DocRAFTReranker | None = None
 # ── Lifespan ─────────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global qdrant_client, ollama_client, doc_embedder
+    global qdrant_client, ollama_client, doc_embedder, doc_reranker
     logger.info(f"DocRAFT API starting up (env={ENVIRONMENT})")
     
     # 1. Initialize Qdrant/Ollama (Fast)
@@ -99,9 +99,17 @@ async def lifespan(app: FastAPI):
                     collection_name=COLLECTION_NAME,
                     vectors_config=qdrant_models.VectorParams(size=vector_size, distance=qdrant_models.Distance.COSINE),
                 )
+                qdrant_client.create_payload_index(
+                    collection_name=COLLECTION_NAME,
+                    field_name="source_document",
+                    field_schema=qdrant_models.PayloadSchemaType.KEYWORD,
+                )
                 logger.info(f"Collection {COLLECTION_NAME} created.")
     except Exception as e:
         logger.error(f"Failed to setup collection: {e}")
+
+    doc_embedder = DocRAFTEmbedder()
+    doc_reranker = DocRAFTReranker()
 
     yield
     

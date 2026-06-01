@@ -13,7 +13,8 @@ export function ImagePreview({ imagePath, alt }: ImagePreviewProps) {
   const [error, setError] = useState(false);
 
   // Construct the URL: serve recursively from /images, handles Windows/Linux paths and subdirectories
-  const cleanPath = imagePath.replace(/\\/g, "/");
+  const decodedPath = decodeURIComponent(imagePath);
+  const cleanPath = decodedPath.replace(/\\/g, "/");
   const imagesIndex = cleanPath.toLowerCase().indexOf("images/");
   
   let relativePath = "";

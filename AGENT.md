@@ -257,7 +257,7 @@ docs: add detailed Ollama setup instructions to README
 | # | Title | Assignee | Labels | State |
 |---|---|---|---|---|
 | 3 | Docling integration; build PDF to Markdown to LlamaIndex chunking pipeline | Jalpan04 | AI/Ml | CLOSED |
-| 5 | FastAPI endpoints: /upload, /query, /documents; basic health checks | ayoitssmit | Full-Stack | OPEN |
+| 5 | FastAPI endpoints: /upload, /query, /documents; basic health checks | ayoitssmit | Full-Stack | CLOSED |
 | 26 | Data Collection: Gather 50-200 technical PDF manuals for RAG corpus | Jalpan04, ayoitssmit | AI/Ml | OPEN |
 
 #### Week 3
@@ -265,14 +265,14 @@ docs: add detailed Ollama setup instructions to README
 | # | Title | Assignee | Labels | State |
 |---|---|---|---|---|
 | 6 | Implement bge-large-en embeddings + Qdrant ingestion; run first semantic queries | Jalpan04 | AI/Ml | CLOSED |
-| 7 | Next.js chat UI with Vercel AI SDK streaming; document upload modal | ayoitssmit | Full-Stack, Frontend | OPEN |
+| 7 | Next.js chat UI with Vercel AI SDK streaming; document upload modal | ayoitssmit | Full-Stack, Frontend | CLOSED |
 
 #### Week 4
 
 | # | Title | Assignee | Labels | State |
 |---|---|---|---|---|
 | 8 | Add bge-reranker cross-encoder; validate two-pass retrieval quality vs single-pass | Jalpan04 | AI/Ml | CLOSED |
-| 9 | Connect frontend to FastAPI; end-to-end upload to query demo working | Jalpan04, ayoitssmit | Full-Stack | OPEN |
+| 9 | Connect frontend to FastAPI; end-to-end upload to query demo working | Jalpan04, ayoitssmit | Full-Stack | CLOSED |
 
 #### Week 5
 
@@ -557,13 +557,13 @@ python -m backend.ingestion.test_pipeline
 
 ---
 
-## 16. Current Status (as of 2026-05-12)
+## 16. Current Status (as of 2026-06-01)
 
 - **Week 1**: COMPLETED. Project scaffold, environment setup, Ollama + Qdrant baseline confirmed working.
-- **Week 2**: IN PROGRESS. Jalpan working on Issue #3 (Docling pipeline). Smit working on Issue #5 (FastAPI endpoints). Issue #26 (data collection) is a shared parallel task.
-- The `nomic-embed-text` model produces 768-dimensional vectors.
-- The Qdrant collection `docraft_knowledge` exists with 3 test documents from Week 1.
-- The frontend is a bare Next.js 16 scaffold with no custom pages yet.
+- **Week 2**: COMPLETED. Docling converter, LlamaIndex Markdown chunking pipeline, and async background task worker fully implemented (Issue #3). FastAPI endpoints for `/upload`, `/query`, `/documents` fully live (Issue #5). Issue #26 (data collection) is active and in progress.
+- **Week 3**: COMPLETED. BGE-Large-en (1024-dim) dense embeddings integrated and set as primary (Issue #6). Next.js premium chat UI with custom base64 sources streaming and upload modal completed (Issue #7).
+- **Week 4**: COMPLETED. BGE-Reranker-v2-m3 (cross-encoder) fully enabled in the backend for two-pass retrieval (Issue #8). End-to-end pipeline fully connected, optimized, and verified (Issue #9).
+- **Recent Technical Polish**: Normalized Windows-specific file paths for static image serving (`decodeURIComponent` fix), added block-level LaTeX delimiter auto-balancing to isolate formatting parsing errors, and added 1500-character chunking limit optimized for diagrams and tables.
 
 ---
 

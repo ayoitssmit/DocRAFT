@@ -28,6 +28,7 @@ export async function POST(req: Request) {
     id: string;
     score: number;
     text: string;
+    display_text?: string;
     filename?: string;
     source_document?: string;
     image_path?: string;
@@ -59,14 +60,22 @@ export async function POST(req: Request) {
   }
 
   // Step 2: Build context block from retrieved chunks
+  // Use display_text as fallback when text is empty (e.g. image/table chunks where AI description is in display_text)
+  const sourcesWithContent = sources.filter((s) => {
+    const effectiveText = s.text || s.display_text || "";
+    return effectiveText.trim().length > 0;
+  });
+
   const contextBlock =
-    sources.length > 0
-      ? sources
+    sourcesWithContent.length > 0
+      ? sourcesWithContent
           .map((s, i) => {
             const docName = s.source_document || s.filename || "unknown";
             const scoreStr = s.score?.toFixed(3) || "N/A";
             const contentType = s.content_type || "text";
-            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${s.text}`;
+            // Prefer text, fall back to display_text for image/table nodes
+            const effectiveText = s.text || s.display_text || "";
+            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${effectiveText}`;
           })
           .join("\n\n---\n\n")
       : "No relevant documents found in the knowledge base.";

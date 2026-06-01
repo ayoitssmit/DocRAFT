@@ -327,6 +327,7 @@ async def query_documents(request: QueryRequest):
                     "text": hit.payload.get("text"),
                     "display_text": hit.payload.get("display_text"),
                     "filename": hit.payload.get("filename") or hit.payload.get("source_file") or hit.payload.get("source_document"),
+                    "source_document": hit.payload.get("source_document") or hit.payload.get("filename") or hit.payload.get("source_file"),
                     "image_path": hit.payload.get("image_path"),
                     "content_type": hit.payload.get("content_type", "text"),
                     "reranked": True
@@ -341,6 +342,7 @@ async def query_documents(request: QueryRequest):
                     "text": hit.payload.get("text"),
                     "display_text": hit.payload.get("display_text"),
                     "filename": hit.payload.get("filename") or hit.payload.get("source_file") or hit.payload.get("source_document"),
+                    "source_document": hit.payload.get("source_document") or hit.payload.get("filename") or hit.payload.get("source_file"),
                     "image_path": hit.payload.get("image_path"),
                     "content_type": hit.payload.get("content_type", "text"),
                     "reranked": False

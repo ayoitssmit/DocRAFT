@@ -271,7 +271,7 @@ docs: add detailed Ollama setup instructions to README
 
 | # | Title | Assignee | Labels | State |
 |---|---|---|---|---|
-| 8 | Add bge-reranker cross-encoder; validate two-pass retrieval quality vs single-pass | Jalpan04 | AI/Ml | OPEN |
+| 8 | Add bge-reranker cross-encoder; validate two-pass retrieval quality vs single-pass | Jalpan04 | AI/Ml | CLOSED |
 | 9 | Connect frontend to FastAPI; end-to-end upload to query demo working | Jalpan04, ayoitssmit | Full-Stack | OPEN |
 
 #### Week 5

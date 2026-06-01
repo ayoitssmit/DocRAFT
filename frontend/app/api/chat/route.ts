@@ -36,8 +36,17 @@ export async function POST(req: Request) {
   }> = [];
 
   try {
+    // Build a contextual query from the last 3 user turns so that follow-up
+    // questions like "tell me more about this document" carry enough context
+    // for the retriever to find the right document rather than a random one.
+    const recentUserMessages: string[] = messages
+      .filter((m: { role: string }) => m.role === "user")
+      .slice(-3)
+      .map((m: { content: string }) => m.content);
+    const ragQuery = recentUserMessages.join(" | ");
+
     const queryBody: Record<string, unknown> = {
-      query: lastUserMessage,
+      query: ragQuery,
       limit: 5,
     };
     if (documentFilter) {
@@ -59,9 +68,13 @@ export async function POST(req: Request) {
     // Continue without RAG context -- the model will answer from its own knowledge
   }
 
-  // Step 2: Build context block from retrieved chunks
-  // Use display_text as fallback when text is empty (e.g. image/table chunks where AI description is in display_text)
+  // Step 2: Build context block from retrieved chunks.
+  // - Filter out sources below a minimum reranker score (cross-encoder noise floor).
+  // - Use display_text as fallback when text is empty (image/table chunks store
+  //   the AI-generated description in display_text, not text).
+  const MIN_SCORE = 0.005;
   const sourcesWithContent = sources.filter((s) => {
+    if (s.score < MIN_SCORE) return false;
     const effectiveText = s.text || s.display_text || "";
     return effectiveText.trim().length > 0;
   });

@@ -8,23 +8,51 @@ import { SourceCard } from "@/components/chat/SourceCard";
 import { ImagePreview } from "./ImagePreview";
 import type { QueryResult } from "@/lib/api";
 
+function balanceMathInBlock(block: string): string {
+  // 1. Balance double dollars $$
+  const displayParts = block.split("$$");
+  if (displayParts.length % 2 === 0) {
+    block = block + "$$";
+  }
+
+  // 2. Balance single dollars $
+  const withoutDouble = block.replace(/\$\$/g, "");
+  const inlineParts = withoutDouble.split("$");
+  if (inlineParts.length % 2 === 0) {
+    block = block + "$";
+  }
+
+  return block;
+}
+
 function preprocessLaTeX(text: string): string {
   if (!text) return "";
 
-  // Normalize circumflex modifier "ˆ" to standard LaTeX "\hat"
-  let processed = text.replace(/ˆ{([^}]+)}/g, '\\hat{$1}');
-  processed = processed.replace(/ˆ([a-zA-Z0-9])/g, '\\hat{$1}');
+  // Split text by block-level elements (double newlines or headers starting on a new line)
+  const blocks = text.split(/\n\n|\n(?=# )|\n(?=## )|\n(?=### )/g);
+  
+  const balancedBlocks = blocks.map(block => {
+    let processed = block;
+    
+    // Normalize circumflex modifier "ˆ" to standard LaTeX "\hat"
+    processed = processed.replace(/ˆ{([^}]+)}/g, '\\hat{$1}');
+    processed = processed.replace(/ˆ([a-zA-Z0-9])/g, '\\hat{$1}');
 
-  // Targeted plain text math normalizations (e.g. from raw document text)
-  processed = processed.replace(/ˆ\s*c\s*attr/g, '$\\hat{c}_{attr}$');
-  processed = processed.replace(/\bc\s+attr/g, '$c_{attr}$');
-  processed = processed.replace(/ˆ\s*x\s*t/g, '$\\hat{x}_t$');
-  processed = processed.replace(/ˆ\s*x\s*T/g, '$\\hat{x}_T$');
-  processed = processed.replace(/\bx\s+T\b/g, '$x_T$');
-  processed = processed.replace(/\bz\s+t\b/g, '$z_t$');
-  processed = processed.replace(/\bx\s+t\b/g, '$x_t$');
-  processed = processed.replace(/λ\s*cfg/g, '$\\lambda_{cfg}$');
-  processed = processed.replace(/λ\s*{cfg}/g, '$\\lambda_{cfg}$');
+    // Targeted plain text math normalizations (e.g. from raw document text)
+    processed = processed.replace(/ˆ\s*c\s*attr/g, '$\\hat{c}_{attr}$');
+    processed = processed.replace(/\bc\s+attr/g, '$c_{attr}$');
+    processed = processed.replace(/ˆ\s*x\s*t/g, '$\\hat{x}_t$');
+    processed = processed.replace(/ˆ\s*x\s*T/g, '$\\hat{x}_T$');
+    processed = processed.replace(/\bx\s+T\b/g, '$x_T$');
+    processed = processed.replace(/\bz\s+t\b/g, '$z_t$');
+    processed = processed.replace(/\bx\s+t\b/g, '$x_t$');
+    processed = processed.replace(/λ\s*cfg/g, '$\\lambda_{cfg}$');
+    processed = processed.replace(/λ\s*{cfg}/g, '$\\lambda_{cfg}$');
+
+    return balanceMathInBlock(processed);
+  });
+
+  let processed = balancedBlocks.join("\n\n");
 
   // 1. First, replace standard block math delimiters: \[ ... \] -> $$...$$
   processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (_, equation) => {
@@ -37,7 +65,6 @@ function preprocessLaTeX(text: string): string {
   });
 
   // 3. Replace [ ... ] that is clearly block math:
-  // E.g., [ ˆ{x}t = x_t + λ{cfg} \nabla_x E\left( ˆ{c}{attr}, x_t, t \right) ]
   processed = processed.replace(/(?:^|\s)\[\s*([^\]\n]+?)\s*\](?:\s|$)/g, (match, content) => {
     const hasMathSymbols = /\\|[\+\-\*=<>_^{}\\]|\\nabla|\\left|\\right|λ|lambda/i.test(content);
     const isRegularText = /^[a-zA-Z\s,.'"]+$/.test(content);
@@ -49,7 +76,6 @@ function preprocessLaTeX(text: string): string {
   });
 
   // 4. Replace ( ... ) that is clearly inline math:
-  // E.g. ( \nabla_x E\left( ˆ{c}_{attr}, x_t, t \right) ), ( x_T ), ( z_t ), ( t ), ( λ_{cfg} )
   processed = processed.replace(/(?:^|\s)\(\s*([^\)\n]+?)\s*\)(?:\s|$)/g, (match, content) => {
     const trimmed = content.trim();
     

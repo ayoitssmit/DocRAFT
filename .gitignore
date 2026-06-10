@@ -50,4 +50,4 @@ docraft_collector.py
 download_curated_pdfs.py
 fetch_papers.py
 topics.txt
-data/arxiv_manifest.json
+data/arxiv_manifest.jsonc

@@ -40,6 +40,6 @@ RERANKER_FALLBACK: str = "BAAI/bge-reranker-base"
 # Two-pass retrieval parameters:
 # RETRIEVAL_CANDIDATE_K = number of candidate chunks retrieved in Phase 1 (broad recall)
 # RETRIEVAL_RERANK_N   = number of high-quality chunks kept in Phase 2 (high precision)
-RETRIEVAL_CANDIDATE_K: int = 20
+RETRIEVAL_CANDIDATE_K: int = 15
 RETRIEVAL_RERANK_N: int = 5
 

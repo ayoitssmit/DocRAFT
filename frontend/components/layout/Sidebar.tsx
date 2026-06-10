@@ -105,6 +105,12 @@ export function Sidebar({
             }
           } catch (e) {
             console.error("Error polling task status in sidebar:", e);
+            // If the task is not found (HTTP 404), it might have been cleared from backend memory on restart.
+            // Mark it as failed so it stops polling and is cleaned up.
+            if (e instanceof Error && e.message.includes("404")) {
+              nextTasks[i] = { ...task, status: "failed" };
+              updated = true;
+            }
           }
         }
       }

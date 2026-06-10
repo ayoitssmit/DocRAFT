@@ -23,7 +23,7 @@ class DocRAFTReranker:
     """
     Cross-encoder reranker with automatic fallback.
 
-    Primary  -> BAAI/bge-reranker-v2-m3   (best quality)
+    Primary  -> BAAI/bge-reranker-v2-m3    (best quality)
     Fallback -> BAAI/bge-reranker-base     (lighter, faster)
 
     Usage:

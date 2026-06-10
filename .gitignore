@@ -46,3 +46,11 @@ docraft-design-doc.html
 
 # ── Local test checkout ───────────────────────────────────────
 DocRAFT_test/
+
+# ── Scripts and Data ──────────────────────────────────────
+*.csv
+docraft_collector.py
+download_curated_pdfs.py
+fetch_papers.py
+topics.txt
+data/arxiv_manifest.json

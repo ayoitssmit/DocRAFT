@@ -167,8 +167,33 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
           }
           return;
         }
-      } catch {
-        // Ignore polling errors, retry
+      } catch (err) {
+        // If the task is not found (HTTP 404), it might have been cleared from backend memory on restart.
+        // Mark it as failed and stop polling.
+        if (err instanceof Error && err.message.includes("404")) {
+          setFiles((prev) => {
+            const next = [...prev];
+            next[fileIndex] = {
+              ...next[fileIndex],
+              status: "failed",
+              message: "Task not found on backend (possibly restarted)",
+            };
+            return next;
+          });
+
+          // Update status in localStorage for the sidebar
+          try {
+            const existingStr = localStorage.getItem("docraft_active_tasks") || "[]";
+            let existing = JSON.parse(existingStr);
+            existing = existing.map((t: any) => t.taskId === taskId ? { ...t, status: "failed" } : t);
+            localStorage.setItem("docraft_active_tasks", JSON.stringify(existing));
+            window.dispatchEvent(new Event("docraft_active_tasks_changed"));
+          } catch (e) {
+            console.error("Failed to update active task status:", e);
+          }
+          return;
+        }
+        // Ignore other polling errors (e.g. temporary connection loss), retry
       }
 
       attempts++;

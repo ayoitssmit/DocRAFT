@@ -1,6 +1,7 @@
 import { streamText } from "ai";
 import { createOllama } from "ai-sdk-ollama";
 import { API_URL, MODEL_NAME, OLLAMA_HOST } from "@/lib/constants";
+import { getCachedResponse, setCachedResponse } from "@/lib/response-cache";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -22,6 +23,39 @@ export async function POST(req: Request) {
   }
 
   const documentFilter = data?.documentFilter;
+
+  // ── Layer 2 cache lookup ─────────────────────────────────────────
+  const cachedEntry = getCachedResponse(lastUserMessage, documentFilter ?? null);
+  if (cachedEntry) {
+    // Stream the cached LLM response character by character to preserve
+    // the streaming feel. Sources are injected as the first packet exactly
+    // the same way as a live response so the frontend receives identical structure.
+    const encoder = new TextEncoder();
+    const cachedStream = new ReadableStream({
+      async start(controller) {
+        const base64Sources = Buffer.from(
+          JSON.stringify(cachedEntry.sources)
+        ).toString("base64");
+        controller.enqueue(
+          encoder.encode(`<!--SOURCES:${base64Sources}-->`)
+        );
+        // Stream cached text in small chunks to preserve streaming UX
+        const chunkSize = 8;
+        for (let i = 0; i < cachedEntry.llmResponse.length; i += chunkSize) {
+          controller.enqueue(
+            encoder.encode(cachedEntry.llmResponse.slice(i, i + chunkSize))
+          );
+          // Small delay to avoid overwhelming the client
+          await new Promise((r) => setTimeout(r, 2));
+        }
+        controller.close();
+      },
+    });
+    return new Response(cachedStream, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+  // ── End cache lookup ─────────────────────────────────────────────
 
   // Step 1: Retrieve relevant chunks from our RAG backend
   let sources: Array<{
@@ -88,7 +122,9 @@ export async function POST(req: Request) {
             const contentType = s.content_type || "text";
             // Prefer text, fall back to display_text for image/table nodes
             const effectiveText = s.text || s.display_text || "";
-            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${effectiveText}`;
+            const lastSpace = effectiveText.lastIndexOf(" ", 600);
+            const cappedText = effectiveText.length > 600 ? effectiveText.substring(0, lastSpace > 0 ? lastSpace : 600) + "..." : effectiveText;
+            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${cappedText}`;
           })
           .join("\n\n---\n\n")
       : "No relevant documents found in the knowledge base.";
@@ -115,6 +151,9 @@ ${contextBlock}
     model: ollama(MODEL_NAME),
     system: systemPrompt,
     messages,
+    providerOptions: {
+      ollama: { num_ctx: 4096 },
+    },
   });
 
   const safeSources = sources.map(s => ({
@@ -131,11 +170,20 @@ ${contextBlock}
       const sourcesPrefix = `<!--SOURCES:${base64Sources}-->`;
       controller.enqueue(encoder.encode(sourcesPrefix));
 
-      // Stream the actual LLM text chunks as they arrive
+      // Stream LLM response AND accumulate it for caching
+      let accumulatedResponse = "";
       try {
         for await (const chunk of result.textStream) {
+          accumulatedResponse += chunk;
           controller.enqueue(encoder.encode(chunk));
         }
+        // Store in Layer 2 cache after full response is accumulated
+        setCachedResponse(
+          lastUserMessage,
+          documentFilter ?? null,
+          safeSources,
+          accumulatedResponse
+        );
       } catch (err) {
         controller.error(err);
       } finally {

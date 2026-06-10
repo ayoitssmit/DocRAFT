@@ -95,8 +95,11 @@ export default function ChatPage() {
           if (!sourcesExtracted && assistantContent.startsWith("<!--SOURCES:")) {
             const closingTagIndex = assistantContent.indexOf("-->");
             if (closingTagIndex !== -1) {
-              const jsonStr = assistantContent.substring("<!--SOURCES:".length, closingTagIndex);
+              const base64Str = assistantContent.substring("<!--SOURCES:".length, closingTagIndex);
               try {
+                const binString = atob(base64Str);
+                const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0)!);
+                const jsonStr = new TextDecoder().decode(bytes);
                 const parsedSources: QueryResult[] = JSON.parse(jsonStr);
                 setSourcesMap((prev) => ({
                   ...prev,
@@ -116,7 +119,11 @@ export default function ChatPage() {
           setMessages((prev) => 
             prev.map(m => m.id === assistantId ? { 
               ...m, 
-              content: sourcesExtracted ? assistantContent : assistantContent.substring(assistantContent.indexOf("-->") !== -1 ? assistantContent.indexOf("-->") + 3 : 0),
+              content: sourcesExtracted 
+                ? assistantContent 
+                : (assistantContent.startsWith("<!--") 
+                    ? "" 
+                    : assistantContent),
               sources: localSources
             } : m)
           );

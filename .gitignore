@@ -43,3 +43,11 @@ data/images/
 frontend/AGENTS.md
 frontend/CLAUDE.md
 docraft-design-doc.html
+
+# ── Scripts and Data ──────────────────────────────────────
+*.csv
+docraft_collector.py
+download_curated_pdfs.py
+fetch_papers.py
+topics.txt
+data/arxiv_manifest.json

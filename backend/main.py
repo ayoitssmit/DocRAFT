@@ -31,6 +31,7 @@ from llama_index.core.node_parser import MarkdownNodeParser
 from ingestion.pipeline import run_ingestion
 from ingestion.embedder import DocRAFTEmbedder
 from retrieval.reranker import DocRAFTReranker
+from cache.semantic_cache import SemanticCache
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -55,6 +56,7 @@ qdrant_client: QdrantClient | None = None
 ollama_client: OllamaClient | None = None
 doc_embedder: DocRAFTEmbedder | None = None
 doc_reranker: DocRAFTReranker | None = None
+semantic_cache: SemanticCache = SemanticCache()
 
 
 # ── Lifespan ─────────────────────────────────────────────────────────────────
@@ -259,6 +261,10 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
         # Set initial status
         task_status[task_id] = {"status": "queued", "filename": file.filename}
         
+        # Invalidate cache for this document so stale results are never returned
+        # after a re-upload of the same document
+        await semantic_cache.invalidate_document(file.filename)
+        
         # Return immediately!
         return {"task_id": task_id, "status": "queued", "message": "Document ingestion started in background."}
 
@@ -285,6 +291,17 @@ async def query_documents(request: QueryRequest):
         embedder = get_embedder()
         logger.info(f"[Query] Using embedder: {embedder.model_name} (dim={embedder.vector_size})")
         query_vector = embedder.embed_query(request.query)
+        
+        # ── Cache lookup ─────────────────────────────────────────────────
+        cached_results = await semantic_cache.lookup(
+            query_embedding=query_vector,
+            document_filter=request.document_filter,
+        )
+        if cached_results is not None:
+            logger.info("[Cache] HIT — returning cached results instantly.")
+            return QueryResponse(results=cached_results)
+        logger.info("[Cache] MISS — running full retrieval pipeline.")
+        # ─────────────────────────────────────────────────────────────────
         
         # Build optional document filter
         query_filter = None
@@ -348,6 +365,12 @@ async def query_documents(request: QueryRequest):
                 for hit in search_result
             ]
         
+        # Store in semantic cache for future similar queries
+        await semantic_cache.store(
+            query_embedding=query_vector,
+            document_filter=request.document_filter,
+            results=results,
+        )
         return QueryResponse(results=results)
     except Exception as e:
         logger.error(f"Query failed: {traceback.format_exc()}")
@@ -379,6 +402,21 @@ async def list_documents():
     except Exception as e:
         logger.error(f"List documents failed: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/cache/stats", tags=["System"])
+async def cache_stats():
+    """Returns current semantic cache size and entry count."""
+    return {
+        "entries": semantic_cache.size,
+        "max_entries": 100,
+        "similarity_threshold": 0.92,
+    }
+
+@app.post("/cache/clear", tags=["System"])
+async def clear_cache():
+    """Manually clears the entire semantic cache."""
+    await semantic_cache.clear()
+    return {"message": "Cache cleared."}
 
 if __name__ == "__main__":
     import uvicorn

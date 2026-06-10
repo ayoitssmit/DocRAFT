@@ -45,8 +45,7 @@ This is a **2-person collaborative project**. Both members work in parallel on d
 | Validation | Pydantic | >=2.7.0 | Request/response models |
 | LLM Engine | Ollama (local) | latest | Local inference and embeddings |
 | LLM Model | Qwen 2.5-coder:7b | -- | Primary inference model |
-| Embedding Model | BAAI/bge-large-en | -- | Primary vector embeddings (1024 dimensions) |
-| Fallback Embedding | nomic-embed-text | -- | Fallback embeddings via Ollama (768 dimensions) |
+| Embedding Model | nomic-embed-text | -- | Vector embeddings (768 dimensions) |
 | Vector DB | Qdrant | latest (Docker) | Embedding storage and similarity search |
 | Doc Processing | Docling | >=2.0.0 | PDF-to-Markdown conversion (Week 2+) |
 | Chunking | LlamaIndex | >=0.12.0 | Markdown-aware document chunking (Week 2+) |
@@ -264,7 +263,7 @@ docs: add detailed Ollama setup instructions to README
 
 | # | Title | Assignee | Labels | State |
 |---|---|---|---|---|
-| 6 | Implement bge-large-en embeddings + Qdrant ingestion; run first semantic queries | Jalpan04 | AI/Ml | CLOSED |
+| 6 | Implement bge-large-en embeddings + Qdrant ingestion; run first semantic queries | Jalpan04 | AI/Ml | OPEN |
 | 7 | Next.js chat UI with Vercel AI SDK streaming; document upload modal | ayoitssmit | Full-Stack, Frontend | OPEN |
 
 #### Week 4

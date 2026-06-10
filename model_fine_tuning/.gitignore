@@ -1,0 +1,18 @@
+# Local virtual environment
+.venv/
+
+# Local data directories
+data/
+01_raw_data/
+02_clean_data/
+03_ready_for_qlora/
+
+# Large model and checkpoints files
+outputs/
+*.gguf
+
+# Training datasets and temporary state files
+*.jsonl
+*.log
+.processing_progress.json
+.test_progress.json

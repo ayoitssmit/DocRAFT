@@ -107,6 +107,14 @@ async def lifespan(app: FastAPI):
                     field_schema=qdrant_models.PayloadSchemaType.KEYWORD,
                 )
                 logger.info(f"Collection {COLLECTION_NAME} created.")
+            
+            # Always ensure the payload index for source_document exists to optimize metadata-filtered searches
+            qdrant_client.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name="source_document",
+                field_schema=qdrant_models.PayloadSchemaType.KEYWORD,
+            )
+            logger.info("✓ Qdrant collection ready and indexed.")
     except Exception as e:
         logger.error(f"Failed to setup collection: {e}")
 
@@ -344,6 +352,7 @@ async def query_documents(request: QueryRequest):
                     "text": hit.payload.get("text"),
                     "display_text": hit.payload.get("display_text"),
                     "filename": hit.payload.get("filename") or hit.payload.get("source_file") or hit.payload.get("source_document"),
+                    "source_document": hit.payload.get("source_document") or hit.payload.get("filename") or hit.payload.get("source_file"),
                     "image_path": hit.payload.get("image_path"),
                     "content_type": hit.payload.get("content_type", "text"),
                     "reranked": True
@@ -358,6 +367,7 @@ async def query_documents(request: QueryRequest):
                     "text": hit.payload.get("text"),
                     "display_text": hit.payload.get("display_text"),
                     "filename": hit.payload.get("filename") or hit.payload.get("source_file") or hit.payload.get("source_document"),
+                    "source_document": hit.payload.get("source_document") or hit.payload.get("filename") or hit.payload.get("source_file"),
                     "image_path": hit.payload.get("image_path"),
                     "content_type": hit.payload.get("content_type", "text"),
                     "reranked": False

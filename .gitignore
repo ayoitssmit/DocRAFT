@@ -51,3 +51,6 @@ download_curated_pdfs.py
 fetch_papers.py
 topics.txt
 data/arxiv_manifest.jsonc
+
+# ── Local test checkout ───────────────────────────────────────
+DocRAFT_test/

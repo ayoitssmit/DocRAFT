@@ -91,15 +91,20 @@ export default function ChatPage() {
           const chunk = decoder.decode(value, { stream: true });
           assistantContent += chunk;
 
-          // Check if we can extract sources from the prefix HTML comment tag
+          // Extract sources from the leading <!--SOURCES:base64--> comment.
+          // Since it's base64 encoded, it won't contain hyphens, making "-->" completely unambiguous.
           if (!sourcesExtracted && assistantContent.startsWith("<!--SOURCES:")) {
-            const closingTagIndex = assistantContent.indexOf("-->");
-            if (closingTagIndex !== -1) {
-              const base64Str = assistantContent.substring("<!--SOURCES:".length, closingTagIndex);
+            const closingMatch = assistantContent.indexOf("-->");
+            if (closingMatch !== -1) {
+              const base64Str = assistantContent.substring("<!--SOURCES:".length, closingMatch);
               try {
-                const binString = atob(base64Str);
-                const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0)!);
-                const jsonStr = new TextDecoder().decode(bytes);
+                // Decode base64 to UTF-8 safely in browser environment
+                const jsonStr = decodeURIComponent(
+                  atob(base64Str)
+                    .split("")
+                    .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                    .join("")
+                );
                 const parsedSources: QueryResult[] = JSON.parse(jsonStr);
                 setSourcesMap((prev) => ({
                   ...prev,
@@ -107,10 +112,10 @@ export default function ChatPage() {
                 }));
                 localSources = parsedSources;
               } catch (e) {
-                console.error("Failed to parse streamed sources:", e);
+                console.error("Failed to parse base64 streamed sources:", e);
               }
-              // Strip the sources prefix from the displayed content
-              assistantContent = assistantContent.substring(closingTagIndex + "-->".length);
+              // Strip the entire <!--SOURCES:...--> block from displayed content.
+              assistantContent = assistantContent.substring(closingMatch + 3);
               sourcesExtracted = true;
             }
           }
@@ -152,8 +157,9 @@ export default function ChatPage() {
   };
 
 
-  // Auto-save messages to active session whenever messages change
+  // Auto-save messages to active session whenever messages change (but not while streaming)
   useEffect(() => {
+    if (isLoading) return;
     if (!activeSessionId || messages.length === 0) return;
 
     const session = getSession(activeSessionId);
@@ -178,7 +184,7 @@ export default function ChatPage() {
     setSessions((prev) =>
       prev.map((s: any) => (s.id === activeSessionId ? updated : s))
     );
-  }, [messages, activeSessionId, documentFilter]);
+  }, [messages, activeSessionId, documentFilter, isLoading]);
 
   const handleNewChat = useCallback(() => {
     const newSession = createNewSession();

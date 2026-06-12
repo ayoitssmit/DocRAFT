@@ -29,12 +29,9 @@ IMAGE_OUTPUT_DIR: Path = PROJECT_ROOT / "data" / "images"
 # ── Images & Vision ──────────────────────────────────────────────────────────
 VISION_MODEL: str = os.getenv("VISION_MODEL", "granite3.2-vision:2b")
 
-# ── Chunking ─────────────────────────────────────────────────────────────────
-# Initial defaults. Tune in Week 3/4 once retrieval quality metrics are available.
-# nomic-embed-text context window: 2048-8192 tokens.
-# 512-char chunks are very safe and good for granular retrieval.
-CHUNK_SIZE: int = 512
-CHUNK_OVERLAP: int = 64
+# 1500-char chunks are ideal to capture complete tables and paragraphs while staying within the model's high-fidelity context window.
+CHUNK_SIZE: int = 1500
+CHUNK_OVERLAP: int = 150
 
 # ── Reranker & Two-Pass Retrieval ────────────────────────────────────────────
 RERANKER_PRIMARY: str = "BAAI/bge-reranker-v2-m3"

@@ -62,6 +62,7 @@ export async function POST(req: Request) {
     id: string;
     score: number;
     text: string;
+    display_text?: string;
     filename?: string;
     source_document?: string;
     image_path?: string;
@@ -69,9 +70,18 @@ export async function POST(req: Request) {
   }> = [];
 
   try {
+    // Build a contextual query from the last 3 user turns so that follow-up
+    // questions like "tell me more about this document" carry enough context
+    // for the retriever to find the right document rather than a random one.
+    const recentUserMessages: string[] = messages
+      .filter((m: { role: string }) => m.role === "user")
+      .slice(-3)
+      .map((m: { content: string }) => m.content);
+    const ragQuery = recentUserMessages.join(" | ");
+
     const queryBody: Record<string, unknown> = {
-      query: lastUserMessage,
-      limit: 3,
+      query: ragQuery,
+      limit: 5,
     };
     if (documentFilter) {
       queryBody.document_filter = documentFilter;
@@ -92,16 +102,27 @@ export async function POST(req: Request) {
     // Continue without RAG context -- the model will answer from its own knowledge
   }
 
-  // Step 2: Build context block from retrieved chunks
+  // Step 2: Build context block from retrieved chunks.
+  // - Filter out sources below a minimum reranker score (cross-encoder noise floor).
+  // - Use display_text as fallback when text is empty (image/table chunks store
+  //   the AI-generated description in display_text, not text).
+  const MIN_SCORE = 0.005;
+  const sourcesWithContent = sources.filter((s) => {
+    if (s.score < MIN_SCORE) return false;
+    const effectiveText = s.text || s.display_text || "";
+    return effectiveText.trim().length > 0;
+  });
+
   const contextBlock =
-    sources.length > 0
-      ? sources
+    sourcesWithContent.length > 0
+      ? sourcesWithContent
           .map((s, i) => {
             const docName = s.source_document || s.filename || "unknown";
             const scoreStr = s.score?.toFixed(3) || "N/A";
             const contentType = s.content_type || "text";
-            const cappedText = s.text.length > 600 ? s.text.substring(0, s.text.lastIndexOf(" ", 600)) + "..." : s.text;
-            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${cappedText}`;
+            // Prefer text, fall back to display_text for image/table nodes
+            const effectiveText = s.text || s.display_text || "";
+            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${effectiveText}`;
           })
           .join("\n\n---\n\n")
       : "No relevant documents found in the knowledge base.";

@@ -116,8 +116,23 @@ class DocRAFTEmbedder:
             List of floats representing the dense embedding vector.
         """
         if self.backend == "sentence-transformers":
-            vec = self._st_model.encode(text, normalize_embeddings=True)
-            return vec.tolist()
+            try:
+                vec = self._st_model.encode(text, normalize_embeddings=True)
+                return vec.tolist()
+            except Exception as e:
+                if "cuda" in str(e).lower() or "device" in str(e).lower() or "runtime" in str(e).lower():
+                    logger.error(f"[Embedder] CUDA error during embed: {e}. Falling back to CPU...")
+                    try:
+                        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+                        self._st_model = SentenceTransformer("BAAI/bge-large-en", device="cpu")
+                        vec = self._st_model.encode(text, normalize_embeddings=True)
+                        logger.info("[Embedder] ✓ Self-healing complete. Successfully embedded on CPU.")
+                        return vec.tolist()
+                    except Exception as cpu_err:
+                        logger.error(f"[Embedder] CPU fallback failed: {cpu_err}")
+                        raise cpu_err
+                else:
+                    raise e
         else:
             response = self._ollama.embeddings(model=self.model_name, prompt=text)
             return response["embedding"]
@@ -136,8 +151,23 @@ class DocRAFTEmbedder:
         if self.backend == "sentence-transformers":
             # BGE asymmetric retrieval: instruction on query side only
             prefixed_query = f"{BGE_QUERY_INSTRUCTION}{query}"
-            vec = self._st_model.encode(prefixed_query, normalize_embeddings=True)
-            return vec.tolist()
+            try:
+                vec = self._st_model.encode(prefixed_query, normalize_embeddings=True)
+                return vec.tolist()
+            except Exception as e:
+                if "cuda" in str(e).lower() or "device" in str(e).lower() or "runtime" in str(e).lower():
+                    logger.error(f"[Embedder] CUDA error during embed_query: {e}. Falling back to CPU...")
+                    try:
+                        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+                        self._st_model = SentenceTransformer("BAAI/bge-large-en", device="cpu")
+                        vec = self._st_model.encode(prefixed_query, normalize_embeddings=True)
+                        logger.info("[Embedder] ✓ Self-healing complete. Successfully embedded query on CPU.")
+                        return vec.tolist()
+                    except Exception as cpu_err:
+                        logger.error(f"[Embedder] CPU fallback failed: {cpu_err}")
+                        raise cpu_err
+                else:
+                    raise e
         else:
             response = self._ollama.embeddings(model=self.model_name, prompt=query)
             return response["embedding"]
@@ -153,8 +183,23 @@ class DocRAFTEmbedder:
             List of embedding vectors (same order as input).
         """
         if self.backend == "sentence-transformers":
-            vecs = self._st_model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
-            return [v.tolist() for v in vecs]
+            try:
+                vecs = self._st_model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+                return [v.tolist() for v in vecs]
+            except Exception as e:
+                if "cuda" in str(e).lower() or "device" in str(e).lower() or "runtime" in str(e).lower():
+                    logger.error(f"[Embedder] CUDA error during embed_batch: {e}. Falling back to CPU...")
+                    try:
+                        from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+                        self._st_model = SentenceTransformer("BAAI/bge-large-en", device="cpu")
+                        vecs = self._st_model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
+                        logger.info("[Embedder] ✓ Self-healing complete. Successfully embedded batch on CPU.")
+                        return [v.tolist() for v in vecs]
+                    except Exception as cpu_err:
+                        logger.error(f"[Embedder] CPU fallback failed: {cpu_err}")
+                        raise cpu_err
+                else:
+                    raise e
         else:
             # Ollama has no native batch API — embed sequentially
             return [self.embed(t) for t in texts]

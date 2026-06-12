@@ -1,0 +1,650 @@
+{
+  "downloaded": {
+    "2009.10297": {
+      "title": "CodeBLEU: a Method for Automatic Evaluation of Code Synthesis",
+      "file": "2009.10297_CodeBLEU__a_Method_for_Automatic_Evaluation_of_Code_Synthesis.pdf",
+      "url": "https://arxiv.org/pdf/2009.10297.pdf"
+    },
+    "2409.03733": {
+      "title": "Planning In Natural Language Improves LLM Search For Code Generation",
+      "file": "2409.03733_Planning_In_Natural_Language_Improves_LLM_Search_For_Code_Generation.pdf",
+      "url": "https://arxiv.org/pdf/2409.03733.pdf"
+    },
+    "2604.22601": {
+      "title": "From Natural Language to Verified Code: Toward AI Assisted Problem-to-Code Generation with Dafny-Based Formal Verification",
+      "file": "2604.22601_From_Natural_Language_to_Verified_Code__Toward_AI_Assisted_Problem-to-Code_Gener.pdf",
+      "url": "https://arxiv.org/pdf/2604.22601.pdf"
+    },
+    "2402.16694": {
+      "title": "HumanEval-XL: A Multilingual Code Generation Benchmark for Cross-lingual Natural Language Generalization",
+      "file": "2402.16694_HumanEval-XL__A_Multilingual_Code_Generation_Benchmark_for_Cross-lingual_Natural.pdf",
+      "url": "https://arxiv.org/pdf/2402.16694.pdf"
+    },
+    "2303.16749": {
+      "title": "Improving Code Generation by Training with Natural Language Feedback",
+      "file": "2303.16749_Improving_Code_Generation_by_Training_with_Natural_Language_Feedback.pdf",
+      "url": "https://arxiv.org/pdf/2303.16749.pdf"
+    },
+    "1509.00413": {
+      "title": "Program Synthesis Using Natural Language",
+      "file": "1509.00413_Program_Synthesis_Using_Natural_Language.pdf",
+      "url": "https://arxiv.org/pdf/1509.00413.pdf"
+    },
+    "1908.05848": {
+      "title": "Sketch-Driven Regular Expression Generation from Natural Language and Examples",
+      "file": "1908.05848_Sketch-Driven_Regular_Expression_Generation_from_Natural_Language_and_Examples.pdf",
+      "url": "https://arxiv.org/pdf/1908.05848.pdf"
+    },
+    "2004.09015": {
+      "title": "Incorporating External Knowledge through Pre-training for Natural Language to Code Generation",
+      "file": "2004.09015_Incorporating_External_Knowledge_through_Pre-training_for_Natural_Language_to_Co.pdf",
+      "url": "https://arxiv.org/pdf/2004.09015.pdf"
+    },
+    "2309.17446": {
+      "title": "L2CEval: Evaluating Language-to-Code Generation Capabilities of Large Language Models",
+      "file": "2309.17446_L2CEval__Evaluating_Language-to-Code_Generation_Capabilities_of_Large_Language_M.pdf",
+      "url": "https://arxiv.org/pdf/2309.17446.pdf"
+    },
+    "2310.03173": {
+      "title": "B-Coder: Value-Based Deep Reinforcement Learning for Program Synthesis",
+      "file": "2310.03173_B-Coder__Value-Based_Deep_Reinforcement_Learning_for_Program_Synthesis.pdf",
+      "url": "https://arxiv.org/pdf/2310.03173.pdf"
+    },
+    "2212.09248": {
+      "title": "Natural Language to Code Generation in Interactive Data Science Notebooks",
+      "file": "2212.09248_Natural_Language_to_Code_Generation_in_Interactive_Data_Science_Notebooks.pdf",
+      "url": "https://arxiv.org/pdf/2212.09248.pdf"
+    },
+    "2504.05759": {
+      "title": "RETROcode: Leveraging a Code Database for Improved Natural Language to Code Generation",
+      "file": "2504.05759_RETROcode__Leveraging_a_Code_Database_for_Improved_Natural_Language_to_Code_Gene.pdf",
+      "url": "https://arxiv.org/pdf/2504.05759.pdf"
+    },
+    "2405.01573": {
+      "title": "Class-Level Code Generation from Natural Language Using Iterative, Tool-Enhanced Reasoning over Repository",
+      "file": "2405.01573_Class-Level_Code_Generation_from_Natural_Language_Using_Iterative__Tool-Enhanced.pdf",
+      "url": "https://arxiv.org/pdf/2405.01573.pdf"
+    },
+    "2108.07732": {
+      "title": "Program Synthesis with Large Language Models",
+      "file": "2108.07732_Program_Synthesis_with_Large_Language_Models.pdf",
+      "url": "https://arxiv.org/pdf/2108.07732.pdf"
+    },
+    "2302.08468": {
+      "title": "LEVER: Learning to Verify Language-to-Code Generation with Execution",
+      "file": "2302.08468_LEVER__Learning_to_Verify_Language-to-Code_Generation_with_Execution.pdf",
+      "url": "https://arxiv.org/pdf/2302.08468.pdf"
+    },
+    "2509.22908": {
+      "title": "A benchmark for vericoding: formally verified program synthesis",
+      "file": "2509.22908_A_benchmark_for_vericoding__formally_verified_program_synthesis.pdf",
+      "url": "https://arxiv.org/pdf/2509.22908.pdf"
+    },
+    "2509.17393": {
+      "title": "Program Synthesis via Test-Time Transduction",
+      "file": "2509.17393_Program_Synthesis_via_Test-Time_Transduction.pdf",
+      "url": "https://arxiv.org/pdf/2509.17393.pdf"
+    },
+    "2203.13474": {
+      "title": "CodeGen: An Open Large Language Model for Code with Multi-Turn Program Synthesis",
+      "file": "2203.13474_CodeGen__An_Open_Large_Language_Model_for_Code_with_Multi-Turn_Program_Synthesis.pdf",
+      "url": "https://arxiv.org/pdf/2203.13474.pdf"
+    },
+    "2404.19318": {
+      "title": "Calibration of Large Language Models on Code Summarization",
+      "file": "2404.19318_Calibration_of_Large_Language_Models_on_Code_Summarization.pdf",
+      "url": "https://arxiv.org/pdf/2404.19318.pdf"
+    },
+    "2502.00085": {
+      "title": "Efficient Beam Search for Large Language Models Using Trie-Based Decoding",
+      "file": "2502.00085_Efficient_Beam_Search_for_Large_Language_Models_Using_Trie-Based_Decoding.pdf",
+      "url": "https://arxiv.org/pdf/2502.00085.pdf"
+    },
+    "2402.14182": {
+      "title": "Do Machines and Humans Focus on Similar Code? Exploring Explainability of Large Language Models in Code Summarization",
+      "file": "2402.14182_Do_Machines_and_Humans_Focus_on_Similar_Code__Exploring_Explainability_of_Large_.pdf",
+      "url": "https://arxiv.org/pdf/2402.14182.pdf"
+    },
+    "2512.18748": {
+      "title": "Code2Doc: A Quality-First Curated Dataset for Code Documentation",
+      "file": "2512.18748_Code2Doc__A_Quality-First_Curated_Dataset_for_Code_Documentation.pdf",
+      "url": "https://arxiv.org/pdf/2512.18748.pdf"
+    },
+    "2312.10349": {
+      "title": "A Comparative Analysis of Large Language Models for Code Documentation Generation",
+      "file": "2312.10349_A_Comparative_Analysis_of_Large_Language_Models_for_Code_Documentation_Generatio.pdf",
+      "url": "https://arxiv.org/pdf/2312.10349.pdf"
+    },
+    "2503.15231": {
+      "title": "When LLMs Meet API Documentation: Can Retrieval Augmentation Aid Code Generation Just as It Helps Developers?",
+      "file": "2503.15231_When_LLMs_Meet_API_Documentation__Can_Retrieval_Augmentation_Aid_Code_Generation.pdf",
+      "url": "https://arxiv.org/pdf/2503.15231.pdf"
+    },
+    "2402.16667": {
+      "title": "RepoAgent: An LLM-Powered Open-Source Framework for Repository-level Code Documentation Generation",
+      "file": "2402.16667_RepoAgent__An_LLM-Powered_Open-Source_Framework_for_Repository-level_Code_Docume.pdf",
+      "url": "https://arxiv.org/pdf/2402.16667.pdf"
+    },
+    "2404.08018": {
+      "title": "Analyzing the Performance of Large Language Models on Code Summarization",
+      "file": "2404.08018_Analyzing_the_Performance_of_Large_Language_Models_on_Code_Summarization.pdf",
+      "url": "https://arxiv.org/pdf/2404.08018.pdf"
+    },
+    "2405.19032": {
+      "title": "Large Language Models for Code Summarization",
+      "file": "2405.19032_Large_Language_Models_for_Code_Summarization.pdf",
+      "url": "https://arxiv.org/pdf/2405.19032.pdf"
+    },
+    "2104.01002": {
+      "title": "HAConvGNN: Hierarchical Attention Based Convolutional Graph Neural Network for Code Documentation Generation in Jupyter Notebooks",
+      "file": "2104.01002_HAConvGNN__Hierarchical_Attention_Based_Convolutional_Graph_Neural_Network_for_C.pdf",
+      "url": "https://arxiv.org/pdf/2104.01002.pdf"
+    },
+    "2505.09062": {
+      "title": "Variational Prefix Tuning for Diverse and Accurate Code Summarization Using Pre-trained Language Models",
+      "file": "2505.09062_Variational_Prefix_Tuning_for_Diverse_and_Accurate_Code_Summarization_Using_Pre-.pdf",
+      "url": "https://arxiv.org/pdf/2505.09062.pdf"
+    },
+    "2501.07857": {
+      "title": "Hierarchical Repository-Level Code Summarization for Business Applications Using Local LLMs",
+      "file": "2501.07857_Hierarchical_Repository-Level_Code_Summarization_for_Business_Applications_Using.pdf",
+      "url": "https://arxiv.org/pdf/2501.07857.pdf"
+    },
+    "2509.14273": {
+      "title": "Automated and Context-Aware Code Documentation Leveraging Advanced LLMs",
+      "file": "2509.14273_Automated_and_Context-Aware_Code_Documentation_Leveraging_Advanced_LLMs.pdf",
+      "url": "https://arxiv.org/pdf/2509.14273.pdf"
+    },
+    "2408.00686": {
+      "title": "Can Developers Prompt? A Controlled Experiment for Code Documentation Generation",
+      "file": "2408.00686_Can_Developers_Prompt__A_Controlled_Experiment_for_Code_Documentation_Generation.pdf",
+      "url": "https://arxiv.org/pdf/2408.00686.pdf"
+    },
+    "2504.08725": {
+      "title": "DocAgent: A Multi-Agent System for Automated Code Documentation Generation",
+      "file": "2504.08725_DocAgent__A_Multi-Agent_System_for_Automated_Code_Documentation_Generation.pdf",
+      "url": "https://arxiv.org/pdf/2504.08725.pdf"
+    },
+    "2510.11039": {
+      "title": "RepoSummary: Feature-Oriented Summarization and Documentation Generation for Code Repositories",
+      "file": "2510.11039_RepoSummary__Feature-Oriented_Summarization_and_Documentation_Generation_for_Cod.pdf",
+      "url": "https://arxiv.org/pdf/2510.11039.pdf"
+    },
+    "2209.02235": {
+      "title": "Automatic Code Documentation Generation Using GPT-3",
+      "file": "2209.02235_Automatic_Code_Documentation_Generation_Using_GPT-3.pdf",
+      "url": "https://arxiv.org/pdf/2209.02235.pdf"
+    },
+    "2008.12193": {
+      "title": "Neural Code Search Revisited: Enhancing Code Snippet Retrieval through Natural Language Intent",
+      "file": "2008.12193_Neural_Code_Search_Revisited__Enhancing_Code_Snippet_Retrieval_through_Natural_L.pdf",
+      "url": "https://arxiv.org/pdf/2008.12193.pdf"
+    },
+    "2401.04514": {
+      "title": "Rewriting the Code: A Simple Method for Large Language Model Augmented Code Search",
+      "file": "2401.04514_Rewriting_the_Code__A_Simple_Method_for_Large_Language_Model_Augmented_Code_Sear.pdf",
+      "url": "https://arxiv.org/pdf/2401.04514.pdf"
+    },
+    "2007.14381": {
+      "title": "BUSTLE: Bottom-up program-Synthesis Through Learning-guided Exploration",
+      "file": "2007.14381_BUSTLE__Bottom-up_program-Synthesis_Through_Learning-guided_Exploration.pdf",
+      "url": "https://arxiv.org/pdf/2007.14381.pdf"
+    },
+    "2508.11425": {
+      "title": "Tapas are free! Training-Free Adaptation of Programmatic Agents via LLM-Guided Program Synthesis in Dynamic Environments",
+      "file": "2508.11425_Tapas_are_free__Training-Free_Adaptation_of_Programmatic_Agents_via_LLM-Guided_P.pdf",
+      "url": "https://arxiv.org/pdf/2508.11425.pdf"
+    },
+    "2510.10216": {
+      "title": "Learning to Guarantee Type Correctness in Code Generation through Type-Guided Program Synthesis",
+      "file": "2510.10216_Learning_to_Guarantee_Type_Correctness_in_Code_Generation_through_Type-Guided_Pr.pdf",
+      "url": "https://arxiv.org/pdf/2510.10216.pdf"
+    },
+    "2602.16981": {
+      "title": "Mason: Type- and Name-Guided Program Synthesis",
+      "file": "2602.16981_Mason__Type-_and_Name-Guided_Program_Synthesis.pdf",
+      "url": "https://arxiv.org/pdf/2602.16981.pdf"
+    },
+    "2504.14480": {
+      "title": "Program Synthesis from Partial Traces",
+      "file": "2504.14480_Program_Synthesis_from_Partial_Traces.pdf",
+      "url": "https://arxiv.org/pdf/2504.14480.pdf"
+    },
+    "2102.11137": {
+      "title": "Program Synthesis Guided Reinforcement Learning",
+      "file": "2102.11137_Program_Synthesis_Guided_Reinforcement_Learning.pdf",
+      "url": "https://arxiv.org/pdf/2102.11137.pdf"
+    },
+    "2604.12218": {
+      "title": "LLM-Enhanced Log Anomaly Detection: A Comprehensive Benchmark of Large Language Models for Automated System Diagnostics",
+      "file": "2604.12218_LLM-Enhanced_Log_Anomaly_Detection__A_Comprehensive_Benchmark_of_Large_Language_.pdf",
+      "url": "https://arxiv.org/pdf/2604.12218.pdf"
+    },
+    "2201.07312": {
+      "title": "Model-driven Cluster Resource Management for AI Workloads in Edge Clouds",
+      "file": "2201.07312_Model-driven_Cluster_Resource_Management_for_AI_Workloads_in_Edge_Clouds.pdf",
+      "url": "https://arxiv.org/pdf/2201.07312.pdf"
+    },
+    "2011.10080": {
+      "title": "WAE: Workload Automation Engine for CDN-specialized Container Orchestration",
+      "file": "2011.10080_WAE__Workload_Automation_Engine_for_CDN-specialized_Container_Orchestration.pdf",
+      "url": "https://arxiv.org/pdf/2011.10080.pdf"
+    },
+    "2101.06054": {
+      "title": "Artificial Intelligence for IT Operations (AIOPS) Workshop White Paper",
+      "file": "2101.06054_Artificial_Intelligence_for_IT_Operations__AIOPS__Workshop_White_Paper.pdf",
+      "url": "https://arxiv.org/pdf/2101.06054.pdf"
+    },
+    "2504.11505": {
+      "title": "eARCO: Efficient Automated Root Cause Analysis with Prompt Optimization",
+      "file": "2504.11505_eARCO__Efficient_Automated_Root_Cause_Analysis_with_Prompt_Optimization.pdf",
+      "url": "https://arxiv.org/pdf/2504.11505.pdf"
+    },
+    "2511.05720": {
+      "title": "An Architecture for Remote Container Builds and Artifact Delivery Using a Controller-Light Jenkins CI/CD Pipeline",
+      "file": "2511.05720_An_Architecture_for_Remote_Container_Builds_and_Artifact_Delivery_Using_a_Contro.pdf",
+      "url": "https://arxiv.org/pdf/2511.05720.pdf"
+    },
+    "2510.15906": {
+      "title": "FVDebug: An LLM-Driven Debugging Assistant for Automated Root Cause Analysis of Formal Verification Failures",
+      "file": "2510.15906_FVDebug__An_LLM-Driven_Debugging_Assistant_for_Automated_Root_Cause_Analysis_of_.pdf",
+      "url": "https://arxiv.org/pdf/2510.15906.pdf"
+    },
+    "2403.12199": {
+      "title": "Empirical Analysis on CI/CD Pipeline Evolution in Machine Learning Projects",
+      "file": "2403.12199_Empirical_Analysis_on_CI_CD_Pipeline_Evolution_in_Machine_Learning_Projects.pdf",
+      "url": "https://arxiv.org/pdf/2403.12199.pdf"
+    },
+    "2503.16038": {
+      "title": "DevOps Automation Pipeline Deployment with IaC (Infrastructure as Code)",
+      "file": "2503.16038_DevOps_Automation_Pipeline_Deployment_with_IaC__Infrastructure_as_Code_.pdf",
+      "url": "https://arxiv.org/pdf/2503.16038.pdf"
+    },
+    "2504.12250": {
+      "title": "AnomalyGen: An Automated Semantic Log Sequence Generation Framework with LLM for Anomaly Detection",
+      "file": "2504.12250_AnomalyGen__An_Automated_Semantic_Log_Sequence_Generation_Framework_with_LLM_for.pdf",
+      "url": "https://arxiv.org/pdf/2504.12250.pdf"
+    },
+    "2311.03213": {
+      "title": "On the Model Update Strategies for Supervised Learning in AIOps Solutions",
+      "file": "2311.03213_On_the_Model_Update_Strategies_for_Supervised_Learning_in_AIOps_Solutions.pdf",
+      "url": "https://arxiv.org/pdf/2311.03213.pdf"
+    },
+    "2501.12461": {
+      "title": "Empowering AIOps: Leveraging Large Language Models for IT Operations Management",
+      "file": "2501.12461_Empowering_AIOps__Leveraging_Large_Language_Models_for_IT_Operations_Management.pdf",
+      "url": "https://arxiv.org/pdf/2501.12461.pdf"
+    },
+    "2412.15374": {
+      "title": "Automated Root Cause Analysis System for Complex Data Products",
+      "file": "2412.15374_Automated_Root_Cause_Analysis_System_for_Complex_Data_Products.pdf",
+      "url": "https://arxiv.org/pdf/2412.15374.pdf"
+    },
+    "2411.19043": {
+      "title": "Using a Feedback Loop for LLM-based Infrastructure as Code Generation",
+      "file": "2411.19043_Using_a_Feedback_Loop_for_LLM-based_Infrastructure_as_Code_Generation.pdf",
+      "url": "https://arxiv.org/pdf/2411.19043.pdf"
+    },
+    "2511.12385": {
+      "title": "GenSIaC: Toward Security-Aware Infrastructure-as-Code Generation with Large Language Models",
+      "file": "2511.12385_GenSIaC__Toward_Security-Aware_Infrastructure-as-Code_Generation_with_Large_Lang.pdf",
+      "url": "https://arxiv.org/pdf/2511.12385.pdf"
+    },
+    "2506.05623": {
+      "title": "Deployability-Centric Infrastructure-as-Code Generation: Fail, Learn, Refine, and Succeed through LLM-Empowered DevOps Simulation",
+      "file": "2506.05623_Deployability-Centric_Infrastructure-as-Code_Generation__Fail__Learn__Refine__an.pdf",
+      "url": "https://arxiv.org/pdf/2506.05623.pdf"
+    },
+    "2212.10001": {
+      "title": "Towards Understanding Chain-of-Thought Prompting: An Empirical Study of What Matters",
+      "file": "2212.10001_Towards_Understanding_Chain-of-Thought_Prompting__An_Empirical_Study_of_What_Mat.pdf",
+      "url": "https://arxiv.org/pdf/2212.10001.pdf"
+    },
+    "2305.06599": {
+      "title": "Structured Chain-of-Thought Prompting for Code Generation",
+      "file": "2305.06599_Structured_Chain-of-Thought_Prompting_for_Code_Generation.pdf",
+      "url": "https://arxiv.org/pdf/2305.06599.pdf"
+    },
+    "2406.09136": {
+      "title": "Chain of Preference Optimization: Improving Chain-of-Thought Reasoning in LLMs",
+      "file": "2406.09136_Chain_of_Preference_Optimization__Improving_Chain-of-Thought_Reasoning_in_LLMs.pdf",
+      "url": "https://arxiv.org/pdf/2406.09136.pdf"
+    },
+    "2409.11527": {
+      "title": "Improving LLM Reasoning with Multi-Agent Tree-of-Thought Validator Agent",
+      "file": "2409.11527_Improving_LLM_Reasoning_with_Multi-Agent_Tree-of-Thought_Validator_Agent.pdf",
+      "url": "https://arxiv.org/pdf/2409.11527.pdf"
+    },
+    "2210.03493": {
+      "title": "Automatic Chain of Thought Prompting in Large Language Models",
+      "file": "2210.03493_Automatic_Chain_of_Thought_Prompting_in_Large_Language_Models.pdf",
+      "url": "https://arxiv.org/pdf/2210.03493.pdf"
+    },
+    "2402.17230": {
+      "title": "Chain-of-Thought Prompting of Large Language Models for Discovering and Fixing Software Vulnerabilities",
+      "file": "2402.17230_Chain-of-Thought_Prompting_of_Large_Language_Models_for_Discovering_and_Fixing_S.pdf",
+      "url": "https://arxiv.org/pdf/2402.17230.pdf"
+    },
+    "2201.11903": {
+      "title": "Chain of Thought Prompting Elicits Reasoning in Large Language Models",
+      "file": "2201.11903_Chain_of_Thought_Prompting_Elicits_Reasoning_in_Large_Language_Models.pdf",
+      "url": "https://arxiv.org/pdf/2201.11903.pdf"
+    },
+    "2605.06040": {
+      "title": "Novelty-based Tree-of-Thought Search for LLM Reasoning and Planning",
+      "file": "2605.06040_Novelty-based_Tree-of-Thought_Search_for_LLM_Reasoning_and_Planning.pdf",
+      "url": "https://arxiv.org/pdf/2605.06040.pdf"
+    },
+    "2401.12242": {
+      "title": "BadChain: Backdoor Chain-of-Thought Prompting for Large Language Models",
+      "file": "2401.12242_BadChain__Backdoor_Chain-of-Thought_Prompting_for_Large_Language_Models.pdf",
+      "url": "https://arxiv.org/pdf/2401.12242.pdf"
+    },
+    "2408.08549": {
+      "title": "Vulnerability Handling of AI-Generated Code - Existing Solutions and Open Challenges",
+      "file": "2408.08549_Vulnerability_Handling_of_AI-Generated_Code_-_Existing_Solutions_and_Open_Challe.pdf",
+      "url": "https://arxiv.org/pdf/2408.08549.pdf"
+    },
+    "2506.07313": {
+      "title": "SCGAgent: Recreating the Benefits of Reasoning Models for Secure Code Generation with Agentic Workflows",
+      "file": "2506.07313_SCGAgent__Recreating_the_Benefits_of_Reasoning_Models_for_Secure_Code_Generation.pdf",
+      "url": "https://arxiv.org/pdf/2506.07313.pdf"
+    },
+    "2407.10106": {
+      "title": "DistillSeq: A Framework for Safety Alignment Testing in Large Language Models using Knowledge Distillation",
+      "file": "2407.10106_DistillSeq__A_Framework_for_Safety_Alignment_Testing_in_Large_Language_Models_us.pdf",
+      "url": "https://arxiv.org/pdf/2407.10106.pdf"
+    },
+    "2508.21634": {
+      "title": "Human-Written vs. AI-Generated Code: A Large-Scale Study of Defects, Vulnerabilities, and Complexity",
+      "file": "2508.21634_Human-Written_vs__AI-Generated_Code__A_Large-Scale_Study_of_Defects__Vulnerabili.pdf",
+      "url": "https://arxiv.org/pdf/2508.21634.pdf"
+    },
+    "2507.02976": {
+      "title": "How Safe Are AI-Generated Patches? A Large-scale Study on Security Risks in LLM and Agentic Automated Program Repair on SWE-bench",
+      "file": "2507.02976_How_Safe_Are_AI-Generated_Patches__A_Large-scale_Study_on_Security_Risks_in_LLM_.pdf",
+      "url": "https://arxiv.org/pdf/2507.02976.pdf"
+    },
+    "2503.10793": {
+      "title": "HALURust: Exploiting Hallucinations of Large Language Models to Detect Vulnerabilities in Rust",
+      "file": "2503.10793_HALURust__Exploiting_Hallucinations_of_Large_Language_Models_to_Detect_Vulnerabi.pdf",
+      "url": "https://arxiv.org/pdf/2503.10793.pdf"
+    },
+    "2604.05292": {
+      "title": "Broken by Default: A Formal Verification Study of Security Vulnerabilities in AI-Generated Code",
+      "file": "2604.05292_Broken_by_Default__A_Formal_Verification_Study_of_Security_Vulnerabilities_in_AI.pdf",
+      "url": "https://arxiv.org/pdf/2604.05292.pdf"
+    },
+    "2508.14727": {
+      "title": "Assessing the Quality and Security of AI-Generated Code: A Quantitative Analysis",
+      "file": "2508.14727_Assessing_the_Quality_and_Security_of_AI-Generated_Code__A_Quantitative_Analysis.pdf",
+      "url": "https://arxiv.org/pdf/2508.14727.pdf"
+    },
+    "2510.26103": {
+      "title": "Security Vulnerabilities in AI-Generated Code: A Large-Scale Analysis of Public GitHub Repositories",
+      "file": "2510.26103_Security_Vulnerabilities_in_AI-Generated_Code__A_Large-Scale_Analysis_of_Public_.pdf",
+      "url": "https://arxiv.org/pdf/2510.26103.pdf"
+    },
+    "2410.01488": {
+      "title": "SecCoder: Towards Generalizable and Robust Secure Code Generation",
+      "file": "2410.01488_SecCoder__Towards_Generalizable_and_Robust_Secure_Code_Generation.pdf",
+      "url": "https://arxiv.org/pdf/2410.01488.pdf"
+    },
+    "2403.15600": {
+      "title": "Just another copy and paste? Comparing the security vulnerabilities of ChatGPT generated code and StackOverflow answers",
+      "file": "2403.15600_Just_another_copy_and_paste__Comparing_the_security_vulnerabilities_of_ChatGPT_g.pdf",
+      "url": "https://arxiv.org/pdf/2403.15600.pdf"
+    },
+    "2412.14841": {
+      "title": "Helping LLMs Improve Code Generation Using Feedback from Testing and Static Analysis",
+      "file": "2412.14841_Helping_LLMs_Improve_Code_Generation_Using_Feedback_from_Testing_and_Static_Anal.pdf",
+      "url": "https://arxiv.org/pdf/2412.14841.pdf"
+    },
+    "2407.02395": {
+      "title": "Is Your AI-Generated Code Really Safe? Evaluating Large Language Models on Secure Code Generation with CodeSecEval",
+      "file": "2407.02395_Is_Your_AI-Generated_Code_Really_Safe__Evaluating_Large_Language_Models_on_Secur.pdf",
+      "url": "https://arxiv.org/pdf/2407.02395.pdf"
+    },
+    "2410.15756": {
+      "title": "Automated Proof Generation for Rust Code via Self-Evolution",
+      "file": "2410.15756_Automated_Proof_Generation_for_Rust_Code_via_Self-Evolution.pdf",
+      "url": "https://arxiv.org/pdf/2410.15756.pdf"
+    },
+    "2604.15485": {
+      "title": "LLM4C2Rust: Large Language Models for Automated Memory-Safe Code Transpilation",
+      "file": "2604.15485_LLM4C2Rust__Large_Language_Models_for_Automated_Memory-Safe_Code_Transpilation.pdf",
+      "url": "https://arxiv.org/pdf/2604.15485.pdf"
+    },
+    "2604.01052": {
+      "title": "VibeGuard: A Security Gate Framework for AI-Generated Code",
+      "file": "2604.01052_VibeGuard__A_Security_Gate_Framework_for_AI-Generated_Code.pdf",
+      "url": "https://arxiv.org/pdf/2604.01052.pdf"
+    },
+    "2404.07548": {
+      "title": "DeVAIC: A Tool for Security Assessment of AI-generated Code",
+      "file": "2404.07548_DeVAIC__A_Tool_for_Security_Assessment_of_AI-generated_Code.pdf",
+      "url": "https://arxiv.org/pdf/2404.07548.pdf"
+    },
+    "2303.05901": {
+      "title": "Better Safe Than Sorry! Automated Identification of Functionality-Breaking Security-Configuration Rules",
+      "file": "2303.05901_Better_Safe_Than_Sorry__Automated_Identification_of_Functionality-Breaking_Secur.pdf",
+      "url": "https://arxiv.org/pdf/2303.05901.pdf"
+    },
+    "2209.08936": {
+      "title": "Automated Implementation of Windows-related Security-Configuration Guides",
+      "file": "2209.08936_Automated_Implementation_of_Windows-related_Security-Configuration_Guides.pdf",
+      "url": "https://arxiv.org/pdf/2209.08936.pdf"
+    },
+    "2212.14198": {
+      "title": "Load Balancer Tuning: Comparative Analysis of HAProxy Load Balancing Methods",
+      "file": "2212.14198_Load_Balancer_Tuning__Comparative_Analysis_of_HAProxy_Load_Balancing_Methods.pdf",
+      "url": "https://arxiv.org/pdf/2212.14198.pdf"
+    },
+    "2308.12707": {
+      "title": "Security Assessment and Hardening of Fog Computing Systems",
+      "file": "2308.12707_Security_Assessment_and_Hardening_of_Fog_Computing_Systems.pdf",
+      "url": "https://arxiv.org/pdf/2308.12707.pdf"
+    },
+    "2209.08824": {
+      "title": "Hardening with Scapolite: A DevOps-based Approach for Improved Authoring and Testing of Security-Configuration Guides in Large-Scale Organizations",
+      "file": "2209.08824_Hardening_with_Scapolite__A_DevOps-based_Approach_for_Improved_Authoring_and_Tes.pdf",
+      "url": "https://arxiv.org/pdf/2209.08824.pdf"
+    },
+    "2604.17256": {
+      "title": "A Unified Compliance Aggregator Framework for Automated Multi-Tool Security Assessment of Linux Systems",
+      "file": "2604.17256_A_Unified_Compliance_Aggregator_Framework_for_Automated_Multi-Tool_Security_Asse.pdf",
+      "url": "https://arxiv.org/pdf/2604.17256.pdf"
+    },
+    "2506.02043": {
+      "title": "Docker under Siege: Securing Containers in the Modern Era",
+      "file": "2506.02043_Docker_under_Siege__Securing_Containers_in_the_Modern_Era.pdf",
+      "url": "https://arxiv.org/pdf/2506.02043.pdf"
+    },
+    "2512.14290": {
+      "title": "A Hybrid Reactive-Proactive Auto-scaling Algorithm for SLA-Constrained Edge Computing",
+      "file": "2512.14290_A_Hybrid_Reactive-Proactive_Auto-scaling_Algorithm_for_SLA-Constrained_Edge_Comp.pdf",
+      "url": "https://arxiv.org/pdf/2512.14290.pdf"
+    },
+    "2510.02585": {
+      "title": "Key Considerations for Auto-Scaling: Lessons from Benchmark Microservices",
+      "file": "2510.02585_Key_Considerations_for_Auto-Scaling__Lessons_from_Benchmark_Microservices.pdf",
+      "url": "https://arxiv.org/pdf/2510.02585.pdf"
+    },
+    "2506.19246": {
+      "title": "Behavioral Anomaly Detection in Distributed Systems via Federated Contrastive Learning",
+      "file": "2506.19246_Behavioral_Anomaly_Detection_in_Distributed_Systems_via_Federated_Contrastive_Le.pdf",
+      "url": "https://arxiv.org/pdf/2506.19246.pdf"
+    },
+    "2502.12435": {
+      "title": "A Survey on Large Language Models for Automated Planning",
+      "file": "2502.12435_A_Survey_on_Large_Language_Models_for_Automated_Planning.pdf",
+      "url": "https://arxiv.org/pdf/2502.12435.pdf"
+    },
+    "2504.00058": {
+      "title": "GAL-MAD: Towards Explainable Anomaly Detection in Microservice Applications Using Graph Attention Networks",
+      "file": "2504.00058_GAL-MAD__Towards_Explainable_Anomaly_Detection_in_Microservice_Applications_Usin.pdf",
+      "url": "https://arxiv.org/pdf/2504.00058.pdf"
+    },
+    "2501.14170": {
+      "title": "Argos: Agentic Time-Series Anomaly Detection with Autonomous Rule Generation via Large Language Models",
+      "file": "2501.14170_Argos__Agentic_Time-Series_Anomaly_Detection_with_Autonomous_Rule_Generation_via.pdf",
+      "url": "https://arxiv.org/pdf/2501.14170.pdf"
+    },
+    "2310.04701": {
+      "title": "Twin Graph-Based Anomaly Detection via Attentive Multi-Modal Learning for Microservice System",
+      "file": "2310.04701_Twin_Graph-Based_Anomaly_Detection_via_Attentive_Multi-Modal_Learning_for_Micros.pdf",
+      "url": "https://arxiv.org/pdf/2310.04701.pdf"
+    },
+    "2409.02572": {
+      "title": "Advancing Cyber Incident Timeline Analysis Through Retrieval-Augmented Generation and Large Language Models",
+      "file": "2409.02572_Advancing_Cyber_Incident_Timeline_Analysis_Through_Retrieval-Augmented_Generatio.pdf",
+      "url": "https://arxiv.org/pdf/2409.02572.pdf"
+    },
+    "2603.25773": {
+      "title": "The Specification as Quality Gate: Three Hypotheses on AI-Assisted Code Review",
+      "file": "2603.25773_The_Specification_as_Quality_Gate__Three_Hypotheses_on_AI-Assisted_Code_Review.pdf",
+      "url": "https://arxiv.org/pdf/2603.25773.pdf"
+    },
+    "2506.10330": {
+      "title": "Augmenting Large Language Models with Static Code Analysis for Automated Code Quality Improvements",
+      "file": "2506.10330_Augmenting_Large_Language_Models_with_Static_Code_Analysis_for_Automated_Code_Qu.pdf",
+      "url": "https://arxiv.org/pdf/2506.10330.pdf"
+    },
+    "2501.14802": {
+      "title": "DNN-Powered MLOps Pipeline Optimization for Large Language Models: A Framework for Automated Deployment and Resource Management",
+      "file": "2501.14802_DNN-Powered_MLOps_Pipeline_Optimization_for_Large_Language_Models__A_Framework_f.pdf",
+      "url": "https://arxiv.org/pdf/2501.14802.pdf"
+    },
+    "2309.02894": {
+      "title": "A Large-Scale Empirical Study on Semantic Versioning in Golang Ecosystem",
+      "file": "2309.02894_A_Large-Scale_Empirical_Study_on_Semantic_Versioning_in_Golang_Ecosystem.pdf",
+      "url": "https://arxiv.org/pdf/2309.02894.pdf"
+    },
+    "2510.04851": {
+      "title": "LEGOMem: Modular Procedural Memory for Multi-agent LLM Systems for Workflow Automation",
+      "file": "2510.04851_LEGOMem__Modular_Procedural_Memory_for_Multi-agent_LLM_Systems_for_Workflow_Auto.pdf",
+      "url": "https://arxiv.org/pdf/2510.04851.pdf"
+    },
+    "2501.07834": {
+      "title": "Flow: Modularized Agentic Workflow Automation",
+      "file": "2501.07834_Flow__Modularized_Agentic_Workflow_Automation.pdf",
+      "url": "https://arxiv.org/pdf/2501.07834.pdf"
+    },
+    "2309.15217": {
+      "title": "RAGAs: Automated Evaluation of Retrieval Augmented Generation",
+      "file": "2309.15217_RAGAs__Automated_Evaluation_of_Retrieval_Augmented_Generation.pdf",
+      "url": "https://arxiv.org/pdf/2309.15217.pdf"
+    },
+    "2209.00393": {
+      "title": "Has My Release Disobeyed Semantic Versioning? Static Detection Based on Semantic Differencing",
+      "file": "2209.00393_Has_My_Release_Disobeyed_Semantic_Versioning__Static_Detection_Based_on_Semantic.pdf",
+      "url": "https://arxiv.org/pdf/2209.00393.pdf"
+    },
+    "2509.16985": {
+      "title": "Static Security Vulnerability Scanning of Proprietary and Open-Source Software: An Adaptable Process with Variants and Results",
+      "file": "2509.16985_Static_Security_Vulnerability_Scanning_of_Proprietary_and_Open-Source_Software__.pdf",
+      "url": "https://arxiv.org/pdf/2509.16985.pdf"
+    },
+    "2405.03058": {
+      "title": "A Unified Framework for Automated Code Transformation and Pragma Insertion",
+      "file": "2405.03058_A_Unified_Framework_for_Automated_Code_Transformation_and_Pragma_Insertion.pdf",
+      "url": "https://arxiv.org/pdf/2405.03058.pdf"
+    },
+    "2508.13732": {
+      "title": "Self-Organizing Agent Network for LLM-based Workflow Automation",
+      "file": "2508.13732_Self-Organizing_Agent_Network_for_LLM-based_Workflow_Automation.pdf",
+      "url": "https://arxiv.org/pdf/2508.13732.pdf"
+    },
+    "2509.01616": {
+      "title": "Automated Generation of Issue-Reproducing Tests by Combining LLMs and Search-Based Testing",
+      "file": "2509.01616_Automated_Generation_of_Issue-Reproducing_Tests_by_Combining_LLMs_and_Search-Bas.pdf",
+      "url": "https://arxiv.org/pdf/2509.01616.pdf"
+    },
+    "2504.15549": {
+      "title": "Do It For Me vs. Do It With Me: Investigating User Perceptions of Different Paradigms of Automation in Copilots for Feature-Rich Software",
+      "file": "2504.15549_Do_It_For_Me_vs__Do_It_With_Me__Investigating_User_Perceptions_of_Different_Para.pdf",
+      "url": "https://arxiv.org/pdf/2504.15549.pdf"
+    },
+    "2603.14619": {
+      "title": "LLM-Augmented Release Intelligence: Automated Change Summarization and Impact Analysis in Cloud-Native CI/CD Pipelines",
+      "file": "2603.14619_LLM-Augmented_Release_Intelligence__Automated_Change_Summarization_and_Impact_An.pdf",
+      "url": "https://arxiv.org/pdf/2603.14619.pdf"
+    },
+    "2512.16676": {
+      "title": "DataFlow: An LLM-Driven Framework for Unified Data Preparation and Workflow Automation in the Era of Data-Centric AI",
+      "file": "2512.16676_DataFlow__An_LLM-Driven_Framework_for_Unified_Data_Preparation_and_Workflow_Auto.pdf",
+      "url": "https://arxiv.org/pdf/2512.16676.pdf"
+    },
+    "2501.14131": {
+      "title": "Refactoring for Dockerfile Quality: A Dive into Developer Practices and Automation Potential",
+      "file": "2501.14131_Refactoring_for_Dockerfile_Quality__A_Dive_into_Developer_Practices_and_Automati.pdf",
+      "url": "https://arxiv.org/pdf/2501.14131.pdf"
+    },
+    "2505.07270": {
+      "title": "Automated Repair of Ambiguous Problem Descriptions for LLM-Based Code Generation",
+      "file": "2505.07270_Automated_Repair_of_Ambiguous_Problem_Descriptions_for_LLM-Based_Code_Generation.pdf",
+      "url": "https://arxiv.org/pdf/2505.07270.pdf"
+    },
+    "2604.05000": {
+      "title": "Closed-Loop Autonomous Software Development via Jira-Integrated Backlog Orchestration: A Case Study in Deterministic Control and Safety-Constrained Automation",
+      "file": "2604.05000_Closed-Loop_Autonomous_Software_Development_via_Jira-Integrated_Backlog_Orchestr.pdf",
+      "url": "https://arxiv.org/pdf/2604.05000.pdf"
+    },
+    "2305.01598": {
+      "title": "From Words to Code: Harnessing Data for Program Synthesis from Natural Language",
+      "file": "2305.01598_From_Words_to_Code__Harnessing_Data_for_Program_Synthesis_from_Natural_Language.pdf",
+      "url": "https://arxiv.org/pdf/2305.01598.pdf"
+    },
+    "2107.02438": {
+      "title": "Shell Language Processing: Unix command parsing for Machine Learning",
+      "file": "2107.02438_Shell_Language_Processing__Unix_command_parsing_for_Machine_Learning.pdf",
+      "url": "https://arxiv.org/pdf/2107.02438.pdf"
+    },
+    "2502.06858": {
+      "title": "LLM-Supported Natural Language to Bash Translation",
+      "file": "2502.06858_LLM-Supported_Natural_Language_to_Bash_Translation.pdf",
+      "url": "https://arxiv.org/pdf/2502.06858.pdf"
+    },
+    "2409.02074": {
+      "title": "RACONTEUR: A Knowledgeable, Insightful, and Portable LLM-Powered Shell Command Explainer",
+      "file": "2409.02074_RACONTEUR__A_Knowledgeable__Insightful__and_Portable_LLM-Powered_Shell_Command_E.pdf",
+      "url": "https://arxiv.org/pdf/2409.02074.pdf"
+    },
+    "2604.16584": {
+      "title": "Certified Program Synthesis with a Multi-Modal Verifier",
+      "file": "2604.16584_Certified_Program_Synthesis_with_a_Multi-Modal_Verifier.pdf",
+      "url": "https://arxiv.org/pdf/2604.16584.pdf"
+    },
+    "2307.07221": {
+      "title": "Software Testing With Large Language Models: Survey, Landscape, and Vision",
+      "file": "2307.07221_Software_Testing_With_Large_Language_Models__Survey__Landscape__and_Vision.pdf",
+      "url": "https://arxiv.org/pdf/2307.07221.pdf"
+    },
+    "2507.08149": {
+      "title": "Code with Me or for Me? How Increasing AI Automation Transforms Developer Workflows",
+      "file": "2507.08149_Code_with_Me_or_for_Me__How_Increasing_AI_Automation_Transforms_Developer_Workfl.pdf",
+      "url": "https://arxiv.org/pdf/2507.08149.pdf"
+    },
+    "2110.12489": {
+      "title": "A Comprehensive Survey of Logging in Software: From Logging Statements Automation to Log Mining and Analysis",
+      "file": "2110.12489_A_Comprehensive_Survey_of_Logging_in_Software__From_Logging_Statements_Automatio.pdf",
+      "url": "https://arxiv.org/pdf/2110.12489.pdf"
+    }
+  },
+  "failed": [
+    "2511.06227",
+    "2509.23970",
+    "2404.13652",
+    "2304.10768",
+    "1804.00218",
+    "2508.15750",
+    "2405.17514",
+    "2107.13132",
+    "1804.01186",
+    "1907.03105",
+    "2509.14693",
+    "2503.01098",
+    "2601.08095",
+    "2305.10838"
+  ]
+}

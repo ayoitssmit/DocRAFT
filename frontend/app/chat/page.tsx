@@ -99,12 +99,9 @@ export default function ChatPage() {
               const base64Str = assistantContent.substring("<!--SOURCES:".length, closingMatch);
               try {
                 // Decode base64 to UTF-8 safely in browser environment
-                const jsonStr = decodeURIComponent(
-                  atob(base64Str)
-                    .split("")
-                    .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-                    .join("")
-                );
+                const binString = atob(base64Str);
+                const bytes = Uint8Array.from(binString, (m) => m.codePointAt(0)!);
+                const jsonStr = new TextDecoder().decode(bytes);
                 const parsedSources: QueryResult[] = JSON.parse(jsonStr);
                 setSourcesMap((prev) => ({
                   ...prev,

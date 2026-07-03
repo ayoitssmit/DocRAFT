@@ -122,7 +122,8 @@ export async function POST(req: Request) {
             const contentType = s.content_type || "text";
             // Prefer text, fall back to display_text for image/table nodes
             const effectiveText = s.text || s.display_text || "";
-            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${effectiveText}`;
+            const cappedText = effectiveText.length > 600 ? effectiveText.substring(0, effectiveText.lastIndexOf(" ", 600)) + "..." : effectiveText;
+            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${cappedText}`;
           })
           .join("\n\n---\n\n")
       : "No relevant documents found in the knowledge base.";

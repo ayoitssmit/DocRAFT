@@ -10,7 +10,7 @@ LRU eviction kicks in when MAX_ENTRIES is reached.
 import time
 import asyncio
 import numpy as np
-from typing import Optional
+from typing import Optional, List
 
 SIMILARITY_THRESHOLD = 0.92  # tune between 0.88 and 0.95
 MAX_ENTRIES = 100             # max cached queries per server session
@@ -32,7 +32,7 @@ class SemanticCache:
     async def lookup(
         self,
         query_embedding: list[float],
-        document_filter: Optional[str],
+        document_filter: Optional[List[str]],
     ) -> Optional[list]:
         """
         Returns cached results if a semantically similar query exists
@@ -41,7 +41,9 @@ class SemanticCache:
         async with self._lock:
             for entry in self._entries:
                 # CRITICAL: never return cache across different document contexts
-                if entry["document_filter"] != document_filter:
+                entry_filter = set(entry["document_filter"] or [])
+                req_filter = set(document_filter or [])
+                if entry_filter != req_filter:
                     continue
                 sim = self._cosine_similarity(
                     query_embedding, entry["query_embedding"]
@@ -55,7 +57,7 @@ class SemanticCache:
     async def store(
         self,
         query_embedding: list[float],
-        document_filter: Optional[str],
+        document_filter: Optional[List[str]],
         results: list,
     ) -> None:
         """Store a new query result. Evicts LRU entry if at capacity."""
@@ -82,7 +84,7 @@ class SemanticCache:
         async with self._lock:
             self._entries = [
                 e for e in self._entries
-                if e["document_filter"] != document_filter
+                if not (e["document_filter"] and document_filter in e["document_filter"])
             ]
 
     async def clear(self) -> None:

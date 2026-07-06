@@ -14,7 +14,7 @@ export interface ChatSession {
   id: string;
   title: string;
   messages: Message[];
-  documentFilter: string | null;
+  documentFilter: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -71,7 +71,7 @@ export function createNewSession(): ChatSession {
     id: crypto.randomUUID(),
     title: "New Chat",
     messages: [],
-    documentFilter: null,
+    documentFilter: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };

@@ -3,7 +3,7 @@
 import { Upload, X } from "lucide-react";
 
 interface ChatHeaderProps {
-  activeFilter: string | null;
+  activeFilter: string[];
   onClearFilter: () => void;
   onUploadClick: () => void;
 }
@@ -39,37 +39,47 @@ export function ChatHeader({
           Chat
         </h1>
 
-        {activeFilter && (
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "4px 10px",
-              borderRadius: 20,
-              background: "rgba(30,122,140,0.15)",
-              color: "var(--c-teal)",
-              fontSize: 11,
-              fontWeight: 600,
-              fontFamily: "var(--font-mono)",
-              letterSpacing: "0.02em",
-            }}
-          >
-            {activeFilter}
+        {activeFilter && activeFilter.length > 0 && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {activeFilter.map((filter) => (
+              <div
+                key={filter}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "4px 10px",
+                  borderRadius: 20,
+                  background: "rgba(30,122,140,0.15)",
+                  color: "var(--c-teal)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {filter}
+              </div>
+            ))}
             <button
               onClick={onClearFilter}
               style={{
-                background: "transparent",
+                background: "rgba(200,50,50,0.1)",
                 border: "none",
-                color: "inherit",
+                color: "var(--c-coral)",
                 cursor: "pointer",
-                padding: 0,
+                padding: "4px 10px",
+                borderRadius: 20,
                 display: "flex",
                 alignItems: "center",
+                gap: 4,
+                fontSize: 11,
+                fontWeight: 600,
               }}
-              aria-label="Clear filter"
+              aria-label="Clear filters"
             >
               <X size={12} />
+              Clear All
             </button>
           </div>
         )}

@@ -21,14 +21,34 @@ export function ChatWindow({
   sourcesMap,
 }: ChatWindowProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isAutoScrollRef = useRef(true);
+  const lastMessageCountRef = useRef(messages.length);
+
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (container) {
+      // 100px threshold for being "at the bottom"
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+      isAutoScrollRef.current = isNearBottom;
+    }
+  };
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const isNewMessage = messages.length > lastMessageCountRef.current;
+    lastMessageCountRef.current = messages.length;
+
+    if (isAutoScrollRef.current || isNewMessage) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      isAutoScrollRef.current = true;
+    }
   }, [messages, isLoading]);
 
   return (
     <div
+      ref={scrollContainerRef}
+      onScroll={handleScroll}
       style={{
         flex: 1,
         overflowY: "auto",

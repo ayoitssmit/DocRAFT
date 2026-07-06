@@ -83,7 +83,7 @@ export async function POST(req: Request) {
       query: ragQuery,
       limit: 5,
     };
-    if (documentFilter) {
+    if (documentFilter && documentFilter.length > 0) {
       queryBody.document_filter = documentFilter;
     }
 

@@ -178,7 +178,7 @@ class HealthResponse(BaseModel):
 class QueryRequest(BaseModel):
     query: str
     limit: int = 5
-    document_filter: str | None = None
+    document_filter: list[str] | None = None
     rerank: bool = True  # Enable two-pass retrieval by default
 
 class QueryResponse(BaseModel):
@@ -314,11 +314,16 @@ async def query_documents(request: QueryRequest):
         # Build optional document filter
         query_filter = None
         if request.document_filter:
+            # Handle both single string and list for backward compatibility just in case
+            if isinstance(request.document_filter, str):
+                match_val = qdrant_models.MatchValue(value=request.document_filter)
+            else:
+                match_val = qdrant_models.MatchAny(any=request.document_filter)
             query_filter = qdrant_models.Filter(
                 must=[
                     qdrant_models.FieldCondition(
                         key="source_document",
-                        match=qdrant_models.MatchValue(value=request.document_filter)
+                        match=match_val
                     )
                 ]
             )

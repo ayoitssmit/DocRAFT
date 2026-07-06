@@ -55,3 +55,11 @@ data/arxiv_manifest.json
 
 # ── Local test checkout ───────────────────────────────────────
 DocRAFT_test/
+
+# ── User Requested ───────────────────────────────────────
+data/
+scripts/
+docraft_collector/
+download_curated_pdfs/
+fetch_papers/
+training/

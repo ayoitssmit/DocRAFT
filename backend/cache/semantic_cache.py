@@ -29,20 +29,27 @@ class SemanticCache:
             return 0.0
         return float(np.dot(va, vb) / denom)
 
+    def _normalize_filter(self, doc_filter: any) -> list[str]:
+        if not doc_filter:
+            return []
+        if isinstance(doc_filter, str):
+            return [doc_filter]
+        return list(doc_filter)
+
     async def lookup(
         self,
         query_embedding: list[float],
-        document_filter: Optional[List[str]],
+        document_filter: any,
     ) -> Optional[list]:
         """
         Returns cached results if a semantically similar query exists
         for the same document_filter context. Returns None on cache miss.
         """
+        req_filter = set(self._normalize_filter(document_filter))
         async with self._lock:
             for entry in self._entries:
                 # CRITICAL: never return cache across different document contexts
-                entry_filter = set(entry["document_filter"] or [])
-                req_filter = set(document_filter or [])
+                entry_filter = set(self._normalize_filter(entry["document_filter"]))
                 if entry_filter != req_filter:
                     continue
                 sim = self._cosine_similarity(
@@ -57,10 +64,11 @@ class SemanticCache:
     async def store(
         self,
         query_embedding: list[float],
-        document_filter: Optional[List[str]],
+        document_filter: any,
         results: list,
     ) -> None:
         """Store a new query result. Evicts LRU entry if at capacity."""
+        norm_filter = self._normalize_filter(document_filter)
         async with self._lock:
             # Evict least recently used entry when full
             if len(self._entries) >= MAX_ENTRIES:
@@ -69,7 +77,7 @@ class SemanticCache:
 
             self._entries.append({
                 "query_embedding": query_embedding,
-                "document_filter": document_filter,
+                "document_filter": norm_filter,
                 "results": results,
                 "hit_count": 0,
                 "created_at": time.time(),

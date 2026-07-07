@@ -59,7 +59,7 @@ export async function POST(req: Request) {
   }
   // ── End cache lookup ─────────────────────────────────────────────
 
-  // Step 1: Retrieve relevant chunks from our RAG backend
+  // Step 1: Call the stateful Critic-Generator LangGraph on our backend
   let sources: Array<{
     id: string;
     score: number;
@@ -70,114 +70,44 @@ export async function POST(req: Request) {
     image_path?: string;
     content_type?: string;
   }> = [];
+  let responseText = "";
 
   try {
-    // Build a contextual query from the last 3 user turns so that follow-up
-    // questions like "tell me more about this document" carry enough context
-    // for the retriever to find the right document rather than a random one.
-    const recentUserMessages: string[] = messages
-      .filter((m: { role: string }) => m.role === "user")
-      .slice(-3)
-      .map((m: { content: string }) => m.content);
-    const ragQuery = recentUserMessages.join(" | ");
-
-    const queryBody: Record<string, unknown> = {
-      query: ragQuery,
-      limit: 5,
-    };
-    if (documentFilter && documentFilter.length > 0) {
-      queryBody.document_filter = documentFilter;
+    let cleanMessages = messages.slice(-5);
+    if (cleanMessages.length > 0 && cleanMessages[0].role === "assistant") {
+      cleanMessages = cleanMessages.slice(1);
     }
 
-    const ragResponse = await fetch(`${API_URL}/query`, {
+    const backendResponse = await fetch(`${API_URL}/agent/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(queryBody),
+      body: JSON.stringify({
+        query: lastUserMessage,
+        messages: cleanMessages,
+        document_filter: documentFilter
+      }),
     });
 
-    if (ragResponse.ok) {
-      const ragData = await ragResponse.json();
-      sources = ragData.results || [];
+    if (backendResponse.ok) {
+      const data = await backendResponse.json();
+      responseText = data.response || "No response received.";
+      sources = data.sources || [];
+    } else {
+      const errorText = await backendResponse.text();
+      console.error("Backend agent API failed:", errorText);
+      responseText = "Failed to fetch response from the RAG agent backend.";
     }
   } catch (error) {
-    console.error("RAG retrieval failed:", error);
-    // Continue without RAG context -- the model will answer from its own knowledge
+    console.error("Backend agent connection failed:", error);
+    responseText = "Failed to connect to the RAG agent backend.";
   }
-
-  // Step 2: Build context block from retrieved chunks.
-  // - Filter out sources below a minimum reranker score (cross-encoder noise floor).
-  // - Use display_text as fallback when text is empty (image/table chunks store
-  //   the AI-generated description in display_text, not text).
-  const MIN_SCORE = -999.0;
-  const sourcesWithContent = sources.filter((s) => {
-    if (s.score < MIN_SCORE) return false;
-    const effectiveText = s.text || s.display_text || "";
-    return effectiveText.trim().length > 0;
-  });
-
-  const contextBlock =
-    sourcesWithContent.length > 0
-      ? sourcesWithContent
-          .map((s, i) => {
-            const docName = s.source_document || s.filename || "unknown";
-            const scoreStr = s.score?.toFixed(3) || "N/A";
-            const contentType = s.content_type || "text";
-            // Prefer text, fall back to display_text for image/table nodes
-            const effectiveText = s.text || s.display_text || "";
-            const cappedText = effectiveText.length > 600 ? effectiveText.substring(0, effectiveText.lastIndexOf(" ", 600)) + "..." : effectiveText;
-            return `[Source ${i + 1}] (${docName}, score: ${scoreStr}, type: ${contentType})\n${cappedText}`;
-          })
-          .join("\n\n---\n\n")
-      : "No relevant documents found in the knowledge base.";
-
-  // Step 3: Build system prompt
-  const systemPrompt = `You are DocRAFT, an enterprise-grade document analysis assistant.
-
-CRITICAL RULES:
-1. Answer ONLY from the retrieved context below. NEVER invent, guess, or hallucinate any numbers, facts, or details.
-2. When the context contains specific numbers, percentages, or data, you MUST quote them EXACTLY as they appear. Do not round, estimate, or substitute different values.
-3. If the context does not contain the answer, say: "I could not find this information in the uploaded documents."
-4. Do NOT output any citations like "[Source N]" or "Citations:" in your answer.
-5. Write detailed, thorough, and exhaustive answers. Never give brief or summarized responses.
-6. Use Markdown formatting: headers, bullet points, code blocks, and tables.
-7. When the context contains a table, reproduce it exactly in Markdown table format.
-8. When expressing math, use $...$ for inline and $$...$$ for display equations.
-
---- Retrieved Context ---
-${contextBlock}
---- End Context ---`;
-
-  // Step 4: Strip conversation history to only the last user message.
-  // Sending the full history causes the model to copy the style/length
-  // of prior (short) assistant responses instead of following the system prompt.
-  const lastUserMsg = messages.filter((m: { role: string }) => m.role === "user").at(-1);
-  const cleanMessages = lastUserMsg ? [{ role: "user" as const, content: lastUserMsg.content }] : messages;
-
-  // Step 5: Stream the LLM response
-  const result = await streamText({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    model: ollama(MODEL_NAME),
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...cleanMessages
-    ],
-    temperature: 0,
-    providerOptions: {
-      ollama: { num_ctx: 32768, num_predict: -1 },
-    },
-    // Suppress AI SDK warning about system messages in the messages array.
-    // We intentionally place the system prompt inside messages because
-    // Ollama's /api/chat handler requires it there (ignores the separate system param).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...(({ experimental_allowSystemInMessages: true }) as any),
-  });
 
   const safeSources = sources.map(s => ({
     ...s,
     text: s.text
   }));
 
-  // Step 5: Construct a custom stream containing sources as a prefix inside an HTML comment tag
+  // Step 2: Stream the LLM response in chunks to preserve the streaming UX
   const encoder = new TextEncoder();
   const customStream = new ReadableStream({
     async start(controller) {
@@ -186,25 +116,23 @@ ${contextBlock}
       const sourcesPrefix = `<!--SOURCES:${base64Sources}-->`;
       controller.enqueue(encoder.encode(sourcesPrefix));
 
-      // Stream LLM response AND accumulate it for caching
-      let accumulatedResponse = "";
-      try {
-        for await (const chunk of result.textStream) {
-          accumulatedResponse += chunk;
-          controller.enqueue(encoder.encode(chunk));
-        }
-        // Store in Layer 2 cache after full response is accumulated
-        setCachedResponse(
-          lastUserMessage,
-          documentFilter ?? null,
-          safeSources,
-          accumulatedResponse
-        );
-      } catch (err) {
-        controller.error(err);
-      } finally {
-        controller.close();
+      // Stream text chunk by chunk
+      const chunkSize = 16;
+      for (let i = 0; i < responseText.length; i += chunkSize) {
+        controller.enqueue(encoder.encode(responseText.slice(i, i + chunkSize)));
+        // Tiny sleep to make the streaming text appear progressively smooth
+        await new Promise((r) => setTimeout(r, 4));
       }
+      
+      // Store in Layer 2 cache after full response is generated
+      setCachedResponse(
+        lastUserMessage,
+        documentFilter ?? null,
+        safeSources,
+        responseText
+      );
+      
+      controller.close();
     },
   });
 

@@ -14,7 +14,7 @@ const MAX_ENTRIES = 50;
 interface CacheEntry {
   sources: unknown[];
   llmResponse: string;
-  documentFilter: string | null;
+  documentFilter: string[];
   lastAccessed: number;
   hitCount: number;
 }
@@ -29,13 +29,14 @@ function normalizeQuery(query: string): string {
     .trim();
 }
 
-function makeCacheKey(query: string, documentFilter: string | null): string {
-  return `${normalizeQuery(query)}__${documentFilter ?? "all"}`;
+function makeCacheKey(query: string, documentFilter: string[]): string {
+  const filterKey = documentFilter.length > 0 ? documentFilter.slice().sort().join(",") : "all";
+  return `${normalizeQuery(query)}__${filterKey}`;
 }
 
 export function getCachedResponse(
   query: string,
-  documentFilter: string | null
+  documentFilter: string[]
 ): CacheEntry | null {
   const key = makeCacheKey(query, documentFilter);
   const entry = cache.get(key);
@@ -47,7 +48,7 @@ export function getCachedResponse(
 
 export function setCachedResponse(
   query: string,
-  documentFilter: string | null,
+  documentFilter: string[],
   sources: unknown[],
   llmResponse: string
 ): void {
@@ -76,7 +77,7 @@ export function setCachedResponse(
 
 export function invalidateCacheForDocument(documentFilter: string): void {
   for (const [key] of cache.entries()) {
-    if (key.endsWith(`__${documentFilter}`)) {
+    if (key.includes(documentFilter)) {
       cache.delete(key);
     }
   }

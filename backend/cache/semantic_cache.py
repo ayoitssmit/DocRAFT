@@ -10,7 +10,7 @@ LRU eviction kicks in when MAX_ENTRIES is reached.
 import time
 import asyncio
 import numpy as np
-from typing import Optional
+from typing import Optional, List
 
 SIMILARITY_THRESHOLD = 0.92  # tune between 0.88 and 0.95
 MAX_ENTRIES = 100             # max cached queries per server session
@@ -29,19 +29,28 @@ class SemanticCache:
             return 0.0
         return float(np.dot(va, vb) / denom)
 
+    def _normalize_filter(self, doc_filter: any) -> list[str]:
+        if not doc_filter:
+            return []
+        if isinstance(doc_filter, str):
+            return [doc_filter]
+        return list(doc_filter)
+
     async def lookup(
         self,
         query_embedding: list[float],
-        document_filter: Optional[str],
+        document_filter: any,
     ) -> Optional[list]:
         """
         Returns cached results if a semantically similar query exists
         for the same document_filter context. Returns None on cache miss.
         """
+        req_filter = set(self._normalize_filter(document_filter))
         async with self._lock:
             for entry in self._entries:
                 # CRITICAL: never return cache across different document contexts
-                if entry["document_filter"] != document_filter:
+                entry_filter = set(self._normalize_filter(entry["document_filter"]))
+                if entry_filter != req_filter:
                     continue
                 sim = self._cosine_similarity(
                     query_embedding, entry["query_embedding"]
@@ -55,10 +64,11 @@ class SemanticCache:
     async def store(
         self,
         query_embedding: list[float],
-        document_filter: Optional[str],
+        document_filter: any,
         results: list,
     ) -> None:
         """Store a new query result. Evicts LRU entry if at capacity."""
+        norm_filter = self._normalize_filter(document_filter)
         async with self._lock:
             # Evict least recently used entry when full
             if len(self._entries) >= MAX_ENTRIES:
@@ -67,7 +77,7 @@ class SemanticCache:
 
             self._entries.append({
                 "query_embedding": query_embedding,
-                "document_filter": document_filter,
+                "document_filter": norm_filter,
                 "results": results,
                 "hit_count": 0,
                 "created_at": time.time(),
@@ -82,12 +92,15 @@ class SemanticCache:
         async with self._lock:
             self._entries = [
                 e for e in self._entries
-                if e["document_filter"] != document_filter
+                if not (e["document_filter"] and document_filter in e["document_filter"])
             ]
 
     async def clear(self) -> None:
         async with self._lock:
             self._entries.clear()
+
+    def clear_sync(self) -> None:
+        self._entries.clear()
 
     @property
     def size(self) -> int:

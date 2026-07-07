@@ -6,6 +6,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { SourceCard } from "@/components/chat/SourceCard";
 import { ImagePreview } from "./ImagePreview";
+import { CodeBlock } from "./CodeBlock";
 import type { QueryResult } from "@/lib/api";
 
 function balanceMathInBlock(block: string): string {
@@ -171,6 +172,19 @@ export function MessageBubble({ role, content, sources }: MessageBubbleProps) {
                     <span style={{ display: "block", marginTop: 8, marginBottom: 8 }}>
                       <ImagePreview imagePath={src} alt={typeof alt === "string" ? alt : "Image"} />
                     </span>
+                  );
+                },
+                code: ({ node, inline, className, children, ...props }: any) => {
+                  const match = /language-(\w+)/.exec(className || "");
+                  return !inline && match ? (
+                    <CodeBlock
+                      language={match[1]}
+                      value={String(children).replace(/\n$/, "")}
+                    />
+                  ) : (
+                    <code className={className} style={{ background: "rgba(0,0,0,0.1)", padding: "2px 4px", borderRadius: "4px" }} {...props}>
+                      {children}
+                    </code>
                   );
                 }
               }}

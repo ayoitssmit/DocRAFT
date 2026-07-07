@@ -32,6 +32,7 @@ from ingestion.pipeline import run_ingestion
 from ingestion.embedder import DocRAFTEmbedder
 from retrieval.reranker import DocRAFTReranker
 from cache.semantic_cache import SemanticCache
+from retrieval.agent import run_rag_agent
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -78,11 +79,22 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"CRITICAL: Failed to initialize clients: {e}")
 
-    # 2. Collection Setup (Fast)
+    # 1.5 Initialize ML components (Pre-load models before serving)
+    try:
+        doc_embedder = DocRAFTEmbedder()
+        if os.getenv("ENABLE_RERANKER", "false").lower() == "true":
+            doc_reranker = DocRAFTReranker()
+        else:
+            logger.info("Reranker is disabled (ENABLE_RERANKER=false). Skipping startup pre-load to speed up reload times.")
+            doc_reranker = None
+    except Exception as e:
+        logger.error(f"CRITICAL: Failed to load ML models during startup: {e}")
+
+    # 2. Collection Setup (Dynamic Dimensions)
     try:
         if qdrant_client:
-            # We check for dimension mismatch
-            vector_size = 1024 # Default for BGE-Large
+            # Dynamically fetch the embedding model dimension to prevent mismatches
+            vector_size = doc_embedder.vector_size if doc_embedder else 1024
             if qdrant_client.collection_exists(collection_name=COLLECTION_NAME):
                 info = qdrant_client.get_collection(collection_name=COLLECTION_NAME)
                 current_params = info.config.params.vectors
@@ -117,9 +129,6 @@ async def lifespan(app: FastAPI):
             logger.info("✓ Qdrant collection ready and indexed.")
     except Exception as e:
         logger.error(f"Failed to setup collection: {e}")
-
-    doc_embedder = DocRAFTEmbedder()
-    doc_reranker = DocRAFTReranker()
 
     yield
     
@@ -178,11 +187,20 @@ class HealthResponse(BaseModel):
 class QueryRequest(BaseModel):
     query: str
     limit: int = 5
-    document_filter: str | None = None
+    document_filter: list[str] | None = None
     rerank: bool = True  # Enable two-pass retrieval by default
 
 class QueryResponse(BaseModel):
     results: list
+
+class AgentChatRequest(BaseModel):
+    query: str
+    messages: list[dict] = []
+    document_filter: list[str] | None = None
+
+class AgentChatResponse(BaseModel):
+    response: str
+    sources: list
 
 # In-memory dictionary to track background task statuses
 task_status: Dict[str, dict] = {}
@@ -201,6 +219,8 @@ def process_document_bg(task_id: str, tmp_path: str, original_filename: str, cli
                 "chunks_created": result.get("total_chunks", 0),
                 "message": "Multimodal ingestion complete."
             }
+            # Clear semantic cache to prevent stale global retrieval hits
+            semantic_cache.clear_sync()
         else:
             task_status[task_id] = {
                 "status": "failed",
@@ -269,9 +289,8 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
         # Set initial status
         task_status[task_id] = {"status": "queued", "filename": file.filename}
         
-        # Invalidate cache for this document so stale results are never returned
-        # after a re-upload of the same document
-        await semantic_cache.invalidate_document(file.filename)
+        # Clear the entire cache to prevent any stale global cache hits
+        await semantic_cache.clear()
         
         # Return immediately!
         return {"task_id": task_id, "status": "queued", "message": "Document ingestion started in background."}
@@ -314,11 +333,16 @@ async def query_documents(request: QueryRequest):
         # Build optional document filter
         query_filter = None
         if request.document_filter:
+            # Handle both single string and list for backward compatibility just in case
+            if isinstance(request.document_filter, str):
+                match_val = qdrant_models.MatchValue(value=request.document_filter)
+            else:
+                match_val = qdrant_models.MatchAny(any=request.document_filter)
             query_filter = qdrant_models.Filter(
                 must=[
                     qdrant_models.FieldCondition(
                         key="source_document",
-                        match=qdrant_models.MatchValue(value=request.document_filter)
+                        match=match_val
                     )
                 ]
             )
@@ -387,6 +411,27 @@ async def query_documents(request: QueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/agent/chat", response_model=AgentChatResponse, tags=["Retrieval"])
+async def agent_chat(request: AgentChatRequest):
+    """Executes the stateful Critic-Generator LangGraph loop for RAG query processing."""
+    try:
+        if not qdrant_client:
+            raise HTTPException(status_code=503, detail="Database is not connected.")
+        logger.info(f"[Agent Chat] Initiating Agentic loop for query: {request.query}")
+        result = run_rag_agent(
+            query=request.query,
+            messages=request.messages,
+            document_filter=request.document_filter
+        )
+        return AgentChatResponse(
+            response=result["response"],
+            sources=result["sources"]
+        )
+    except Exception as e:
+        logger.error(f"Agent chat execution failed: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/documents", tags=["Documents"])
 async def list_documents():
     """Lists all uploaded documents."""
@@ -398,15 +443,23 @@ async def list_documents():
             with_vectors=False
         )
         
-        docs = [
-            {
-                "id": point.id,
-                "filename": point.payload.get("filename") or point.payload.get("source_file") or point.payload.get("source_document") or "unknown",
-                "source_document": point.payload.get("source_document") or point.payload.get("filename") or "unknown",
-                "content_preview": point.payload.get("text", "")[:100] + "..." if point.payload.get("text") else ""
-            }
-            for point in scroll_result
-        ]
+        seen = set()
+        docs = []
+        for point in scroll_result:
+            filename = (
+                point.payload.get("source_document")
+                or point.payload.get("filename")
+                or point.payload.get("source_file")
+                or "unknown"
+            )
+            if filename not in seen:
+                seen.add(filename)
+                docs.append({
+                    "id": point.id,
+                    "filename": filename,
+                    "source_document": filename,
+                    "content_preview": point.payload.get("text", "")[:100] + "..." if point.payload.get("text") else ""
+                })
         
         return {"documents": docs}
     except Exception as e:

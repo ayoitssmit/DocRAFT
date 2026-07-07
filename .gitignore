@@ -44,13 +44,22 @@ frontend/AGENTS.md
 frontend/CLAUDE.md
 docraft-design-doc.html
 
-# ── Local test checkout ───────────────────────────────────────
-DocRAFT_test/
-
 # ── Scripts and Data ──────────────────────────────────────
 *.csv
 docraft_collector.py
 download_curated_pdfs.py
 fetch_papers.py
 topics.txt
+data/arxiv_manifest.jsonc
 data/arxiv_manifest.json
+
+# ── Local test checkout ───────────────────────────────────────
+DocRAFT_test/
+
+# ── User Requested ───────────────────────────────────────
+data/
+scripts/
+docraft_collector/
+download_curated_pdfs/
+fetch_papers/
+training/

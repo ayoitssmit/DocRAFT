@@ -26,8 +26,8 @@ interface SidebarProps {
   onSelectSession: (id: string) => void;
   onDeleteSession: (id: string) => void;
   onUploadClick: () => void;
-  onDocumentFilter: (docName: string | null) => void;
-  activeFilter: string | null;
+  onDocumentFilter: (docName: string) => void;
+  activeFilter: string[];
 }
 
 export function Sidebar({
@@ -538,13 +538,11 @@ export function Sidebar({
             {uniqueDocs.filter(d => !activeTasks.some(t => (t.status === "queued" || t.status === "processing") && t.filename === (d.source_document || d.filename))).map((doc) => {
               const docName =
                 doc.source_document || doc.filename || "unknown";
-              const isActive = activeFilter === docName;
+              const isActive = activeFilter.includes(docName);
               return (
                 <div
                   key={doc.id}
-                  onClick={() =>
-                    onDocumentFilter(isActive ? null : docName)
-                  }
+                  onClick={() => onDocumentFilter(docName)}
                   style={{
                     display: "flex",
                     alignItems: "center",

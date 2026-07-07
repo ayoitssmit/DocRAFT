@@ -231,12 +231,13 @@ def run_ingestion(
 
     points = []
     
-    # 3.1: Embed Text Chunks (Fast)
-    logger.info(f"Embedding {len(all_nodes)} text chunks with {embedder.model_name}...")
-    for idx, chunk in enumerate(all_nodes):
-        try:
-            embedding = embedder.embed(chunk["text"])
-
+    # 3.1: Embed Text Chunks (Batched)
+    logger.info(f"Embedding {len(all_nodes)} text chunks in batch with {embedder.model_name}...")
+    try:
+        texts = [chunk["text"] for chunk in all_nodes]
+        embeddings = embedder.embed_batch(texts)
+        for idx, chunk in enumerate(all_nodes):
+            embedding = embeddings[idx]
             points.append(
                 models.PointStruct(
                     id=str(uuid.uuid4()),
@@ -254,37 +255,30 @@ def run_ingestion(
                     },
                 )
             )
-        except Exception as e:
-            logger.error(f"Failed to embed chunk {idx} (length {len(chunk['text'])}): {e}")
-            logger.error(f"Snippet: {chunk['text'][:100]}...")
-            continue
-
-    # 3.2: Embed standalone Image Descriptions
-    if image_points_payloads:
-        logger.info(f"Embedding {len(image_points_payloads)} standalone image descriptions with {embedder.model_name}...")
-        for payload in image_points_payloads:
+    except Exception as e:
+        logger.error(f"Failed to embed text chunks in batch: {e}. Falling back to sequential embedding...")
+        for idx, chunk in enumerate(all_nodes):
             try:
-                img_embedding = embedder.embed(payload["combined_text"])
+                embedding = embedder.embed(chunk["text"])
                 points.append(
                     models.PointStruct(
                         id=str(uuid.uuid4()),
-                        vector=img_embedding,
+                        vector=embedding,
                         payload={
-                            "text": payload["combined_text"],
-                            "display_text": payload.get("display_text", payload["combined_text"]),
-                            "source_file": payload["source_file"],
-                            "source_document": original_filename if original_filename else Path(payload["source_file"]).name,
-                            "content_type": "image",
-                            "image_path": payload["image_path"],
-                            "page_no": payload["page_no"],
-                            "description": payload["description"],
+                            "text": chunk["text"],
+                            "source_file": chunk["metadata"].get("source_file", "unknown"),
+                            "source_document": chunk["metadata"].get("source_document"),
+                            "image_path": chunk["metadata"].get("image_path"),
+                            "chunk_index": chunk["metadata"].get("chunk_index", 0),
+                            "total_chunks": chunk["metadata"].get("total_chunks", 0),
+                            "content_type": "text",
                             "embed_model": embedder.model_name,
                             "ingested_at": datetime.now(timezone.utc).isoformat(),
                         },
                     )
                 )
-            except Exception as e:
-                logger.error(f"Failed to embed image description: {e}")
+            except Exception as seq_err:
+                logger.error(f"Failed to embed chunk {idx} sequentially: {seq_err}")
                 continue
 
     if not points:

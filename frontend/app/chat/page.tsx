@@ -22,7 +22,7 @@ import type { QueryResult } from "@/lib/api";
 export default function ChatPage() {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [documentFilter, setDocumentFilter] = useState<string | null>(null);
+  const [documentFilter, setDocumentFilter] = useState<string[]>([]);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [sourcesMap, setSourcesMap] = useState<Record<string, QueryResult[]>>(
     {}
@@ -189,7 +189,7 @@ export default function ChatPage() {
     setSessions((prev) => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
     setMessages([]);
-    setDocumentFilter(null);
+    setDocumentFilter([]);
     setSourcesMap({});
   }, [setMessages]);
 
@@ -199,7 +199,7 @@ export default function ChatPage() {
       if (session) {
         setActiveSessionId(id);
         setMessages(session.messages);
-        setDocumentFilter(session.documentFilter);
+        setDocumentFilter(session.documentFilter || []);
         setSourcesMap({});
       }
     },
@@ -249,8 +249,13 @@ export default function ChatPage() {
     }
   }, [activeSessionId]);
 
-  const handleDocumentFilter = useCallback((docName: string | null) => {
-    setDocumentFilter(docName);
+  const handleDocumentFilter = useCallback((docName: string) => {
+    setDocumentFilter(prev => {
+      if (prev.includes(docName)) {
+        return prev.filter(name => name !== docName);
+      }
+      return [...prev, docName];
+    });
   }, []);
 
   // Keyboard shortcut: Ctrl+N for new chat
@@ -297,7 +302,7 @@ export default function ChatPage() {
       >
         <ChatHeader
           activeFilter={documentFilter}
-          onClearFilter={() => setDocumentFilter(null)}
+          onClearFilter={() => setDocumentFilter([])}
           onUploadClick={() => setUploadModalOpen(true)}
         />
 

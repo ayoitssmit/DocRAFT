@@ -465,7 +465,7 @@ Please answer the request above using the retrieved document context below. Do n
         chat_history,
         {
             "temperature": 0.0,
-            "num_ctx": 8192,
+            "num_ctx": 16384,
             "num_predict": num_predict,
         }
     )
@@ -566,7 +566,7 @@ Respond ONLY with the raw JSON block. Do not write anything else."""
             [{"role": "user", "content": critic_prompt}],
             {
                 "temperature": 0.0,
-                "num_ctx": 8192,
+                "num_ctx": 16384,
                 "num_predict": 512,
             }
         )
@@ -648,7 +648,7 @@ Final Corrected Response:"""
         [{"role": "user", "content": prompt}],
         {
             "temperature": 0.0,
-            "num_ctx": 8192,
+            "num_ctx": 16384,
             "num_predict": num_predict,
         }
     )

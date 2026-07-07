@@ -91,6 +91,9 @@ class SemanticCache:
         async with self._lock:
             self._entries.clear()
 
+    def clear_sync(self) -> None:
+        self._entries.clear()
+
     @property
     def size(self) -> int:
         return len(self._entries)

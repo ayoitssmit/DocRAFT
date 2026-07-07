@@ -201,6 +201,8 @@ def process_document_bg(task_id: str, tmp_path: str, original_filename: str, cli
                 "chunks_created": result.get("total_chunks", 0),
                 "message": "Multimodal ingestion complete."
             }
+            # Clear semantic cache to prevent stale global retrieval hits
+            semantic_cache.clear_sync()
         else:
             task_status[task_id] = {
                 "status": "failed",
@@ -269,9 +271,8 @@ async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = 
         # Set initial status
         task_status[task_id] = {"status": "queued", "filename": file.filename}
         
-        # Invalidate cache for this document so stale results are never returned
-        # after a re-upload of the same document
-        await semantic_cache.invalidate_document(file.filename)
+        # Clear the entire cache to prevent any stale global cache hits
+        await semantic_cache.clear()
         
         # Return immediately!
         return {"task_id": task_id, "status": "queued", "message": "Document ingestion started in background."}

@@ -12,11 +12,13 @@ const ollama = createOllama({
 
 export async function POST(req: Request) {
   const { messages, data } = await req.json();
+  console.log("DEBUG: Received messages history:", JSON.stringify(messages, null, 2));
 
   // Extract the latest user message for RAG retrieval
   const lastUserMessage = messages
     .filter((m: { role: string }) => m.role === "user")
     .at(-1)?.content;
+  console.log("DEBUG: Resolved lastUserMessage:", lastUserMessage);
 
   if (!lastUserMessage) {
     return new Response("No user message found", { status: 400 });
@@ -106,7 +108,7 @@ export async function POST(req: Request) {
   // - Filter out sources below a minimum reranker score (cross-encoder noise floor).
   // - Use display_text as fallback when text is empty (image/table chunks store
   //   the AI-generated description in display_text, not text).
-  const MIN_SCORE = 0.005;
+  const MIN_SCORE = -999.0;
   const sourcesWithContent = sources.filter((s) => {
     if (s.score < MIN_SCORE) return false;
     const effectiveText = s.text || s.display_text || "";
@@ -129,30 +131,45 @@ export async function POST(req: Request) {
       : "No relevant documents found in the knowledge base.";
 
   // Step 3: Build system prompt
-  const systemPrompt = `You are DocRAFT, an enterprise-grade document analysis assistant built for technical knowledge extraction.
+  const systemPrompt = `You are DocRAFT, an enterprise-grade document analysis assistant.
 
-Your behavior:
-- Answer questions using ONLY the retrieved context below. Do not fabricate information.
-- If the context does not contain the answer, clearly state: "I could not find this information in the uploaded documents."
-- Cite sources using [Source N] notation when referencing specific chunks.
-- Format responses using Markdown: use headers, bullet points, code blocks, and tables where appropriate.
-- Be precise, technical, and concise. Avoid filler language.
-- When presenting tabular data from the context, preserve the table format.
-- When expressing any mathematical formula, equation, or symbol from the context, always wrap inline math in single dollar signs ($...$) and display/block equations in double dollar signs ($$...$$). Never output raw LaTeX commands without delimiters. For example: write $x_t$ not x_t, and $$\nabla_x E\left(\hat{c}^{attr}, x_t, t\right)$$ not the raw command string.
+CRITICAL RULES:
+1. Answer ONLY from the retrieved context below. NEVER invent, guess, or hallucinate any numbers, facts, or details.
+2. When the context contains specific numbers, percentages, or data, you MUST quote them EXACTLY as they appear. Do not round, estimate, or substitute different values.
+3. If the context does not contain the answer, say: "I could not find this information in the uploaded documents."
+4. Do NOT output any citations like "[Source N]" or "Citations:" in your answer.
+5. Write detailed, thorough, and exhaustive answers. Never give brief or summarized responses.
+6. Use Markdown formatting: headers, bullet points, code blocks, and tables.
+7. When the context contains a table, reproduce it exactly in Markdown table format.
+8. When expressing math, use $...$ for inline and $$...$$ for display equations.
 
 --- Retrieved Context ---
 ${contextBlock}
 --- End Context ---`;
 
-  // Step 4: Stream the LLM response
+  // Step 4: Strip conversation history to only the last user message.
+  // Sending the full history causes the model to copy the style/length
+  // of prior (short) assistant responses instead of following the system prompt.
+  const lastUserMsg = messages.filter((m: { role: string }) => m.role === "user").at(-1);
+  const cleanMessages = lastUserMsg ? [{ role: "user" as const, content: lastUserMsg.content }] : messages;
+
+  // Step 5: Stream the LLM response
   const result = await streamText({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     model: ollama(MODEL_NAME),
-    system: systemPrompt,
-    messages,
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...cleanMessages
+    ],
+    temperature: 0,
     providerOptions: {
-      ollama: { num_ctx: 4096 },
+      ollama: { num_ctx: 32768, num_predict: -1 },
     },
+    // Suppress AI SDK warning about system messages in the messages array.
+    // We intentionally place the system prompt inside messages because
+    // Ollama's /api/chat handler requires it there (ignores the separate system param).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...(({ experimental_allowSystemInMessages: true }) as any),
   });
 
   const safeSources = sources.map(s => ({

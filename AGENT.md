@@ -257,7 +257,7 @@ docs: add detailed Ollama setup instructions to README
 |---|---|---|---|---|
 | 3 | Docling integration; build PDF to Markdown to LlamaIndex chunking pipeline | Jalpan04 | AI/Ml | CLOSED |
 | 5 | FastAPI endpoints: /upload, /query, /documents; basic health checks | ayoitssmit | Full-Stack | CLOSED |
-| 26 | Data Collection: Gather 50-200 technical PDF manuals for RAG corpus | Jalpan04, ayoitssmit | AI/Ml | OPEN |
+| 26 | Data Collection: Gather 50-200 technical PDF manuals for RAG corpus | Jalpan04, ayoitssmit | AI/Ml | CLOSED |
 
 #### Week 3
 
@@ -277,21 +277,21 @@ docs: add detailed Ollama setup instructions to README
 
 | # | Title | Assignee | Labels | State |
 |---|---|---|---|---|
-| 10 | Generate synthetic Q&A fine-tuning dataset (500 pairs) using base model + Docling output | Jalpan04 | AI/Ml | OPEN |
+| 10 | Generate synthetic Q&A fine-tuning dataset (500 pairs) using base model + Docling output | Jalpan04 | AI/Ml | CLOSED |
 | 11 | Document manager UI: list, delete, version documents; storage layer | ayoitssmit | Full-Stack, Frontend | OPEN |
 
 #### Week 6
 
 | # | Title | Assignee | Labels | State |
 |---|---|---|---|---|
-| 12 | QLoRA fine-tuning run with Unsloth + Axolotl; first eval against base model | Jalpan04 | AI/Ml | OPEN |
+| 12 | QLoRA fine-tuning run with Unsloth + Axolotl; first eval against base model | Jalpan04 | AI/Ml | CLOSED |
 | 13 | Terminal window component for script rendering; syntax highlighting | ayoitssmit | Full-Stack, Frontend | OPEN |
 
 #### Week 7
 
 | # | Title | Assignee | Labels | State |
 |---|---|---|---|---|
-| 14 | Implement LangGraph agentic loop with re-query logic (up to 3 iterations) | Jalpan04 | AI/Ml | OPEN |
+| 14 | Implement LangGraph agentic loop with re-query logic (up to 3 iterations) | Jalpan04 | AI/Ml | CLOSED |
 | 15 | Arize Phoenix integration: instrument FastAPI + LangGraph with trace spans | Jalpan04, ayoitssmit | Full-Stack, Observability | OPEN |
 
 #### Weeks 8-12 (Month 3 -- Production & Polish)
@@ -556,13 +556,16 @@ python -m backend.ingestion.test_pipeline
 
 ---
 
-## 16. Current Status (as of 2026-06-01)
+## 16. Current Status (as of 2026-07-07)
 
 - **Week 1**: COMPLETED. Project scaffold, environment setup, Ollama + Qdrant baseline confirmed working.
-- **Week 2**: COMPLETED. Docling converter, LlamaIndex Markdown chunking pipeline, and async background task worker fully implemented (Issue #3). FastAPI endpoints for `/upload`, `/query`, `/documents` fully live (Issue #5). Issue #26 (data collection) is active and in progress.
+- **Week 2**: COMPLETED. Docling converter, LlamaIndex Markdown chunking pipeline, and async background task worker fully implemented (Issue #3). FastAPI endpoints for `/upload`, `/query`, `/documents` fully live (Issue #5). Technical PDF collection (Issue #26) completed and fine-tuned.
 - **Week 3**: COMPLETED. BGE-Large-en (1024-dim) dense embeddings integrated and set as primary (Issue #6). Next.js premium chat UI with custom base64 sources streaming and upload modal completed (Issue #7).
 - **Week 4**: COMPLETED. BGE-Reranker-v2-m3 (cross-encoder) fully enabled in the backend for two-pass retrieval (Issue #8). End-to-end pipeline fully connected, optimized, and verified (Issue #9).
-- **Recent Technical Polish**: Normalized Windows-specific file paths for static image serving (`decodeURIComponent` fix), added block-level LaTeX delimiter auto-balancing to isolate formatting parsing errors, and added 1500-character chunking limit optimized for diagrams and tables.
+- **Week 5**: COMPLETED dataset generation (Issue #10). Document manager list view is live, other UI controls are in progress (Issue #11).
+- **Week 6**: COMPLETED. QLoRA fine-tuning execution completed and the resulting GGUF is integrated (Issue #12).
+- **Week 7**: COMPLETED. LangGraph stateful retrieve-generate-critic-refine loop fully integrated with context-aware validation and meta-commentary suppression (Issue #14).
+- **Recent Technical Polish**: Normalized Windows-specific file paths for static image serving (`decodeURIComponent` fix), added block-level LaTeX delimiter auto-balancing, forced BGE Embedder and Reranker models to CPU to reserve full GPU VRAM for Ollama LLM, and added a 5-case Raft consensus evaluation test suite.
 
 ---
 
@@ -572,11 +575,6 @@ These are planned but NOT yet installed. Do not add them prematurely.
 
 | Week | Technology | Purpose | Issue |
 |---|---|---|---|
-| 3 | bge-large-en | Production embedding model | #6 |
-| 3 | Vercel AI SDK streaming | Chat UI | #7 |
-| 4 | bge-reranker | Cross-encoder reranking | #8 |
-| 5 | Unsloth + Axolotl | QLoRA fine-tuning framework | #12 |
-| 7 | LangGraph | Agentic loop with re-query | #14 |
 | 7 | Arize Phoenix | Observability and tracing | #15 |
 
 ---

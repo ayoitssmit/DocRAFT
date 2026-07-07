@@ -420,7 +420,9 @@ CRITICAL RULES:
 CRITICAL CODE GENERATION RULES:
 - You must output complete, production-ready code.
 - NEVER use placeholders, TODO comments, or pass statements in the code block.
-- Every branch of logic must be fully implemented. If you fail to write the complete comparisons, the system will crash."""
+- Every branch of logic must be fully implemented. If you fail to write the complete comparisons, the system will crash.
+- Do NOT use math delimiters (like $ or $$) inside programming code blocks.
+- Do NOT add boilerplate or stub methods (like convert_to_follower) that are not requested by the user if they cannot be fully implemented."""
         else:
             system_prompt += """
 
@@ -509,6 +511,8 @@ def critic_node(state: AgentState) -> Dict[str, Any]:
                 return False, "Code contains incomplete 'pass' statements. Write the complete logic or state transitions instead of using 'pass'."
             if "..." in code_block:
                 return False, "Code contains incomplete '...' (ellipsis) placeholders. Write the logic fully."
+            if "$" in code_block:
+                return False, "Code contains invalid LaTeX math delimiters ($ or $$) inside the programming block. Output only pure, valid Python code."
         return True, ""
         
     is_complete, code_feedback = verify_code_completeness(draft)

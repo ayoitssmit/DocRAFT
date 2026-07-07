@@ -56,8 +56,8 @@ class DocRAFTEmbedder:
         try:
             from sentence_transformers import SentenceTransformer  # noqa: PLC0415
 
-            logger.info("[Embedder] Loading BAAI/bge-large-en from HuggingFace cache...")
-            model = SentenceTransformer("BAAI/bge-large-en")
+            logger.info("[Embedder] Loading BAAI/bge-large-en on CPU (reserving GPU VRAM for Ollama LLM)...")
+            model = SentenceTransformer("BAAI/bge-large-en", device="cpu")
 
             # Warm-up / dimension probe
             test_vec = model.encode("test", normalize_embeddings=True)

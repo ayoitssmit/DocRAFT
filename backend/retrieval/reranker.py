@@ -47,12 +47,9 @@ class DocRAFTReranker:
         """Initialize the cross-encoder. Try primary first, fall back if necessary."""
         logger.info("[Reranker] Initializing reranker model...")
 
-        # Check torch CUDA availability
-        try:
-            import torch  # noqa: PLC0415
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        except ImportError:
-            self.device = "cpu"
+        # Always run reranker on CPU to preserve GPU VRAM entirely for Ollama LLM inference.
+        # BGE reranker inference on short passages is fast enough on CPU.
+        self.device = "cpu"
 
         # Attempt 1: BAAI/bge-reranker-v2-m3
         try:

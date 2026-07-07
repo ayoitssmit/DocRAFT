@@ -410,7 +410,7 @@ CRITICAL RULES:
 - Use Markdown formatting: headers, bullet points, code blocks, and tables.
 - When the context contains a table, reproduce it exactly in Markdown table format.
 - When expressing math, use $...$ for inline and $$...$$ for display equations.
-- USER-FORMAT OVERRIDE: If the user requests a specific format (e.g., write code, brief notes), you MUST prioritize the user's formatting request.
+- If the user requests a specific format (e.g., write code, brief notes), you MUST prioritize the user's formatting request.
 - NO META-COMMENTARY: Output ONLY the direct answer. Do NOT include any meta-commentary, notes about citations, explanations of rules, references to how the question was answered, or system formatting instructions."""
 
         is_code = check_is_code_request(query)
@@ -451,7 +451,12 @@ CRITICAL CONCEPTUAL RULES:
         user_prompt_with_context = f"""USER REQUEST:
 {query}
 
-Please answer the request above using the retrieved document context below. Do not guess, do not output meta-commentary, start your answer directly:
+Please answer the request above using the retrieved document context below.
+CRITICAL output constraints:
+- Start directly with the answer content.
+- Do NOT repeat, copy-paste, or carry over any previous assistant answers, headers, or rules from the chat history.
+- Do NOT output any introductory or concluding meta-commentary.
+- Output ONLY the clean factual answer.
 
 --- Retrieved Context ---
 {context_block}
@@ -710,7 +715,8 @@ def clean_final_response(text: str) -> str:
         r"strictly adheres to the retrieved context",
         r"without any inline citations",
         r"without reference brackets",
-        r"note: this answer"
+        r"note: this answer",
+        r"user[- ]format override"
     ]
     
     import re

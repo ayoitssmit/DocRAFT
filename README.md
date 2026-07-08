@@ -35,14 +35,17 @@ PDF ingestion is handled **asynchronously** via FastAPI background tasks. When y
 
 | Capability | Technology |
 |---|---|
-| Layout-aware PDF parsing | Docling `DocumentConverter` |
+| Layout-aware PDF parsing | Docling `DocumentConverter` (with CUDA GPU acceleration) |
 | Semantic chunking | LlamaIndex `MarkdownNodeParser` + `SentenceSplitter` (Optimized to **1500-char** limit) |
-| Dense vector embeddings | Ollama `nomic-embed-text` (768-dim) |
+| Dense vector embeddings | **BAAI/bge-large-en** (Primary, 1024-dim, CPU) & **nomic-embed-text** (Fallback, 768-dim, Ollama) |
+| Two-Pass Reranking | **BAAI/bge-reranker-v2-m3** (with BAAI/bge-reranker-base fallback, toggled in `.env`) |
 | Vector storage & retrieval | Qdrant (local disk or Docker) |
 | Vision / diagram analysis | Ollama `granite3.2-vision:2b` |
 | OCR for technical labels | RapidOCR (ONNX runtime) |
-| LLM reasoning | Ollama `qwen2.5-coder:7b` |
+| Stateful Agentic Graph | **LangGraph** (`Retrieve ➔ Generate ➔ Critic ➔ Refine`) |
+| LLM reasoning & coding | **ulysses** (Primary Mistral 7B) & **qwen2.5-coder:7b** (Inference/Coding Fallback) |
 | Async task processing | FastAPI `BackgroundTasks` |
+| Semantic query cache | **Custom in-memory async-safe cache** (LRU eviction policy) |
 | API layer | FastAPI + Uvicorn |
 | Frontend | Next.js 16 + Tailwind CSS 4 |
 | GPU acceleration | CUDA 12.4 via PyTorch |
@@ -50,6 +53,11 @@ PDF ingestion is handled **asynchronously** via FastAPI background tasks. When y
 
 **Key design principles & features:**
 
+- **Stateful Agent Loop (LangGraph)** — Implements a stateful agent loop (`Retrieve ➔ Generate ➔ Critic ➔ Refine`) with `ulysses` as the primary model and `qwen2.5-coder:7b` as the fallback model for logic and code correction.
+- **Completeness Guard & LaTeX Validation** — The Critic node runs a deterministic Python regex static analyzer that automatically audits code blocks and rejects them if they contain placeholder code (`pass`, `TODO`, `...`) or leaked LaTeX math delimiters (`$`, `$$`) in code blocks.
+- **Self-Healing Embedding Wrapper** — Automatically switches between `BAAI/bge-large-en` (1024-dim, CPU) and `nomic-embed-text` (768-dim, Ollama) on errors, dynamically scaling Qdrant vector shapes on the fly.
+- **Async-Safe Semantic Cache** — In-memory query cache that stores embeddings, return values, and document scopes, returning instant **0ms** responses for semantically identical questions (similarity $\ge 0.92$), and automatically invalidates scopes when new document versions are uploaded.
+- **Hardware-Aware Load Balancing** — Runs LLM inference on the GPU while offloading embeddings and cross-encoder rerankers to the CPU to prevent CUDA OOM on standard 8GB laptop GPUs.
 - **Multimodal Ingestion** — Extracts text, tables, figures, and embedded diagrams from PDFs with high structural fidelity.
 - **Vision Intelligence** — Automatically describes architectural diagrams and charts using Ollama Vision models, making visual content searchable.
 - **OCR-Augmented Retrieval & Smart Hiding** — RapidOCR extracts technical labels from image regions. To ensure clean visual presentation, these raw OCR dumps are wrapped in special `<!-- OCR_START -->` comments so the **AI model retains 100% accuracy** from the text inside images, while the **frontend dynamically filters them out** to keep source citation cards perfectly clean.
@@ -477,9 +485,13 @@ DocRAFT/
 │   ├── Dockerfile                # python:3.12-slim based image
 │   ├── .dockerignore
 │   ├── local_qdrant/             # Auto-created local vector DB storage (git-ignored)
-│   ├── retrieval/                # Week 1 baseline tests
+│   ├── cache/                    # Fast local semantic caching
+│   │   └── semantic_cache.py     # Async-safe LRU query embedding semantic cache
+│   ├── retrieval/                # RAG retrieval and Agent loops
 │   │   ├── baseline_test.py      # Ollama + Qdrant connection test
-│   │   └── ingest_test.py        # Embedding + Qdrant upsert prototype
+│   │   ├── ingest_test.py        # Embedding + Qdrant upsert prototype
+│   │   ├── agent.py              # Stateful LangGraph loop (Retrieve ➔ Generate ➔ Critic ➔ Refine)
+│   │   └── reranker.py           # BGE Reranker cross-encoder wrapper
 │   └── ingestion/                # Multimodal PDF processing pipeline
 │       ├── __init__.py
 │       ├── config.py             # Pipeline configuration constants (paths, models, chunk sizes)
@@ -510,13 +522,15 @@ DocRAFT/
 
 | Scenario | Speed | Notes |
 |---|---|---|
+| Semantic Cache Hit | **0ms** (Instant) | Cosine similarity check matches query at $\ge 0.92$, bypassing DB & LLM. |
 | Text-only PDF (no images) | Fast | Docling parsing + chunking + embedding only |
 | PDF with diagrams (NVIDIA GPU) | Moderate | Vision inference ~2–5s per image on GPU |
 | PDF with diagrams (CPU only) | Slow | Vision inference 5–10× slower without CUDA |
+| BGE Cross-Encoder Rerank | ~1–2s | Deep cross-encoder scoring of top 15 candidates on CPU (toggled in `.env`). |
 | Large document (50+ pages) | 30–60 chunks typical | Each chunk embedded and stored independently |
 | First run (model download) | One-time overhead | RapidOCR ONNX models download automatically on first use |
 
-- Embedding is performed per-chunk using `nomic-embed-text` (768 dimensions) via Ollama.
+- Embedding is performed per-chunk using **BAAI/bge-large-en** (1024 dimensions, CPU) or **nomic-embed-text** (768 dimensions, Ollama).
 - Vector similarity search uses **cosine distance** in Qdrant.
 - Local Qdrant storage is persisted to `backend/local_qdrant/` and survives backend restarts.
 - On first use, RapidOCR automatically downloads its ONNX model weights (~15MB) from ModelScope.

@@ -35,28 +35,28 @@ PDF ingestion is handled **asynchronously** via FastAPI background tasks. When y
 
 | Capability | Technology |
 |---|---|
-| Layout-aware PDF parsing | Docling `DocumentConverter` (with CUDA GPU acceleration) |
-| Semantic chunking | LlamaIndex `MarkdownNodeParser` + `SentenceSplitter` (Optimized to **1500-char** limit) |
-| Dense vector embeddings | **BAAI/bge-large-en** (Primary, 1024-dim, CPU) & **nomic-embed-text** (Fallback, 768-dim, Ollama) |
-| Two-Pass Reranking | **BAAI/bge-reranker-v2-m3** (with BAAI/bge-reranker-base fallback, toggled in `.env`) |
-| Vector storage & retrieval | Qdrant (local disk or Docker) |
-| Vision / diagram analysis | Ollama `granite3.2-vision:2b` |
-| OCR for technical labels | RapidOCR (ONNX runtime) |
-| Stateful Agentic Graph | **LangGraph** (`Retrieve ➔ Generate ➔ Critic ➔ Refine`) |
 | LLM reasoning & coding | **[Ulysses](https://huggingface.co/jalpan04/Ulysses)** (Primary Fine-Tuned Qwen 2.5 Coder 7B) & **qwen2.5-coder:7b** (Inference/Coding Fallback) |
-| Async task processing | FastAPI `BackgroundTasks` |
+| Stateful Agentic Graph | **LangGraph** (`Retrieve ➔ Generate ➔ Critic ➔ Refine`) |
 | Semantic query cache | **Custom in-memory async-safe cache** (LRU eviction policy) |
+| Two-Pass Reranking | **BAAI/bge-reranker-v2-m3** (with BAAI/bge-reranker-base fallback, toggled in `.env`) |
+| Layout-aware PDF parsing | Docling `DocumentConverter` (with CUDA GPU acceleration) |
+| Vision / diagram analysis | Ollama `granite3.2-vision:2b` |
+| Dense vector embeddings | **BAAI/bge-large-en** (Primary, 1024-dim, CPU) & **nomic-embed-text** (Fallback, 768-dim, Ollama) |
+| Vector storage & retrieval | Qdrant (local disk or Docker) |
+| Semantic chunking | LlamaIndex `MarkdownNodeParser` + `SentenceSplitter` (Optimized to **1500-char** limit) |
+| OCR for technical labels | RapidOCR (ONNX runtime) |
+| Mathematical typesetting | **KaTeX / rehype-katex / remark-math** (Full LaTeX support) |
+| Async task processing | FastAPI `BackgroundTasks` |
 | API layer | FastAPI + Uvicorn |
 | Frontend | Next.js 16 + Tailwind CSS 4 |
 | GPU acceleration | CUDA 12.4 via PyTorch |
-| Mathematical typesetting | **KaTeX / rehype-katex / remark-math** (Full LaTeX support) |
 
 **Key design principles & features:**
 
 - **Stateful Agent Loop (LangGraph)** — Implements a stateful agent loop (`Retrieve ➔ Generate ➔ Critic ➔ Refine`) with `ulysses` as the primary model and `qwen2.5-coder:7b` as the fallback model for logic and code correction.
 - **Completeness Guard & LaTeX Validation** — The Critic node runs a deterministic Python regex static analyzer that automatically audits code blocks and rejects them if they contain placeholder code (`pass`, `TODO`, `...`) or leaked LaTeX math delimiters (`$`, `$$`) in code blocks.
-- **Self-Healing Embedding Wrapper** — Automatically switches between `BAAI/bge-large-en` (1024-dim, CPU) and `nomic-embed-text` (768-dim, Ollama) on errors, dynamically scaling Qdrant vector shapes on the fly.
 - **Async-Safe Semantic Cache** — In-memory query cache that stores embeddings, return values, and document scopes, returning instant **0ms** responses for semantically identical questions (similarity $\ge 0.92$), and automatically invalidates scopes when new document versions are uploaded.
+- **Self-Healing Embedding Wrapper** — Automatically switches between `BAAI/bge-large-en` (1024-dim, CPU) and `nomic-embed-text` (768-dim, Ollama) on errors, dynamically scaling Qdrant vector shapes on the fly.
 - **Hardware-Aware Load Balancing** — Runs LLM inference on the GPU while offloading embeddings and cross-encoder rerankers to the CPU to prevent CUDA OOM on standard 8GB laptop GPUs.
 - **Multimodal Ingestion** — Extracts text, tables, figures, and embedded diagrams from PDFs with high structural fidelity.
 - **Vision Intelligence** — Automatically describes architectural diagrams and charts using Ollama Vision models, making visual content searchable.

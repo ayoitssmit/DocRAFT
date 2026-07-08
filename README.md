@@ -43,7 +43,7 @@ PDF ingestion is handled **asynchronously** via FastAPI background tasks. When y
 | Vision / diagram analysis | Ollama `granite3.2-vision:2b` |
 | OCR for technical labels | RapidOCR (ONNX runtime) |
 | Stateful Agentic Graph | **LangGraph** (`Retrieve ➔ Generate ➔ Critic ➔ Refine`) |
-| LLM reasoning & coding | **ulysses** (Primary Mistral 7B) & **qwen2.5-coder:7b** (Inference/Coding Fallback) |
+| LLM reasoning & coding | **[Ulysses](https://huggingface.co/jalpan04/Ulysses)** (Primary Fine-Tuned Mistral 7B) & **qwen2.5-coder:7b** (Inference/Coding Fallback) |
 | Async task processing | FastAPI `BackgroundTasks` |
 | Semantic query cache | **Custom in-memory async-safe cache** (LRU eviction policy) |
 | API layer | FastAPI + Uvicorn |
@@ -189,7 +189,32 @@ ollama pull nomic-embed-text
 ollama pull granite3.2-vision:2b
 ```
 
-> All three models must be available locally before starting the backend. The embedding pipeline and vision analysis will fail if any required model is missing from Ollama.
+### Fine-Tuned Model Setup (Ulysses)
+
+Our primary conversational LLM is **Ulysses**, a fine-tuned model hosted on Hugging Face:
+*   **Hugging Face Repository**: [jalpan04/Ulysses](https://huggingface.co/jalpan04/Ulysses)
+
+To import and run Ulysses in Ollama:
+1. Download the GGUF model files from the Hugging Face repository.
+2. Create a file named `Modelfile` in the download directory with the following content:
+   ```dockerfile
+   FROM ./ulysses-q8_0.gguf
+   TEMPLATE "{{ if .System }}<|im_start|>system
+   {{ .System }}<|im_end|>
+   {{ end }}<|im_start|>user
+   {{ .Prompt }}<|im_end|>
+   <|im_start|>assistant
+   "
+   SYSTEM "You are DocRAFT, a helpful document assistant."
+   PARAMETER temperature 0.0
+   PARAMETER stop "<|im_end|>"
+   ```
+3. Build and register the model inside Ollama:
+   ```powershell
+   ollama create ulysses -f ./Modelfile
+   ```
+
+> All models must be available locally before starting the backend. The embedding pipeline and vision analysis will fail if any required model is missing from Ollama.
 
 ---
 

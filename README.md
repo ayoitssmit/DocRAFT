@@ -43,7 +43,7 @@ PDF ingestion is handled **asynchronously** via FastAPI background tasks. When y
 | Vision / diagram analysis | Ollama `granite3.2-vision:2b` |
 | OCR for technical labels | RapidOCR (ONNX runtime) |
 | Stateful Agentic Graph | **LangGraph** (`Retrieve ➔ Generate ➔ Critic ➔ Refine`) |
-| LLM reasoning & coding | **[Ulysses](https://huggingface.co/jalpan04/Ulysses)** (Primary Fine-Tuned Mistral 7B) & **qwen2.5-coder:7b** (Inference/Coding Fallback) |
+| LLM reasoning & coding | **[Ulysses](https://huggingface.co/jalpan04/Ulysses)** (Primary Fine-Tuned Qwen 2.5 Coder 7B) & **qwen2.5-coder:7b** (Inference/Coding Fallback) |
 | Async task processing | FastAPI `BackgroundTasks` |
 | Semantic query cache | **Custom in-memory async-safe cache** (LRU eviction policy) |
 | API layer | FastAPI + Uvicorn |

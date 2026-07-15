@@ -153,6 +153,26 @@ body::before {
   95%, 100% { width: 0; }
 }
 
+@keyframes revealRight {
+  0% { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+  100% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+}
+
+@keyframes boatDraw {
+  0% { stroke-dashoffset: 1000; fill: transparent; }
+  100% { stroke-dashoffset: 0; fill: transparent; }
+}
+
+@keyframes boatBob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(-1deg); }
+}
+
+@keyframes waveFlow {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-40px); }
+}
+
 @keyframes blink {
   50% { border-color: transparent; }
 }
@@ -176,6 +196,7 @@ body::before {
 .animate-fade-in { animation: fadeIn 0.4s var(--ease-out) forwards; }
 .animate-float { animation: float 6s ease-in-out infinite; }
 .animate-spin { animation: spin 1s linear infinite; }
+.animate-reveal-right { animation: revealRight 1.5s var(--ease-out) forwards; }
 
 /* ---- BADGE STYLES ---- */
 .badge {

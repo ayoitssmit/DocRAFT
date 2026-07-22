@@ -21,3 +21,10 @@ python-dotenv>=1.0.0
 httpx>=0.27.0
 python-multipart>=0.0.9
 langgraph>=0.1.0
+
+# Observability and Tracing
+arize-phoenix>=4.0.0
+arize-phoenix-otel
+opentelemetry-instrumentation-fastapi
+openinference-instrumentation-langchain
+

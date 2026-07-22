@@ -331,6 +331,42 @@ docker compose -f infra/docker-compose.yml up --build
 | Qdrant REST API | `http://localhost:6333` |
 | Qdrant Dashboard | `http://localhost:6333/dashboard` |
 
+
+---
+
+## Observability & Tracing
+
+DocRAFT is integrated with **Arize Phoenix** for real-time observability, tracing, and evaluation. This allows you to inspect the FastAPI request spans, the LangGraph agent state transitions, Qdrant retriever queries, BGE cross-encoder rerankers, and the local Ollama LLM execution token details.
+
+### Running Arize Phoenix
+
+1. **Option A: Docker Compose (Default)**
+   Arize Phoenix is automatically included as a service (`phoenix`) in the Docker Compose stack. When running via:
+   ```powershell
+   docker compose -f infra/docker-compose.yml up --build
+   ```
+   The Phoenix UI will be available at: **http://localhost:6006**
+
+2. **Option B: Local Development**
+   To start the Phoenix collector server on your host machine:
+   * Activate the virtual environment:
+     ```powershell
+     .\.venv\Scripts\Activate.ps1
+     ```
+   * Start the server:
+     ```powershell
+     python -m phoenix.server.main serve
+     ```
+   * The UI will be available at: **http://localhost:6006**
+
+### Viewing Traces
+
+Once the Phoenix server is running:
+1. Trigger a query through the UI or via terminal commands.
+2. Open **http://localhost:6006** in your browser.
+3. Click the project dropdown in the top-left corner and select **DocRAFT** (this project is created dynamically on the first trace).
+4. Inspect the trace waterfalls, token counts, and step-by-step latency metrics.
+
 ---
 
 ## API Reference

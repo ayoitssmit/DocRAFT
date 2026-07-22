@@ -9,6 +9,11 @@ import sys
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 
+# Initialize early tracing before any other imports to correctly instrument LangGraph runnables
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from observability import setup_observability
+setup_observability()
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -160,6 +165,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Connect FastAPI app to the Arize Phoenix tracer provider
+setup_observability(app)
 
 # CORS — allow the Next.js frontend in dev
 app.add_middleware(

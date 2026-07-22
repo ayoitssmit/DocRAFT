@@ -19,9 +19,12 @@ services:
       - OLLAMA_HOST=${OLLAMA_HOST:-http://host.docker.internal:11434}
       - QDRANT_HOST=vector-db
       - QDRANT_PORT=6333
+      - PHOENIX_COLLECTOR_ENDPOINT=http://phoenix:6006/v1/traces
     depends_on:
       vector-db:
         condition: service_healthy
+      phoenix:
+        condition: service_started
     networks:
       - docraft_net
     restart: unless-stopped
@@ -71,6 +74,17 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # ── Arize Phoenix Observability ──────────────────────────────────────────
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: docraft_phoenix
+    ports:
+      - "6006:6006"    # Web UI & OTLP HTTP receiver
+      - "4317:4317"    # OTLP gRPC receiver
+    networks:
+      - docraft_net
+    restart: unless-stopped
 
 # ── Volumes ────────────────────────────────────────────────────────────────
 volumes:

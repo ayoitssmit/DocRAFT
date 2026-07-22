@@ -11,8 +11,10 @@ from ingestion.embedder import DocRAFTEmbedder
 from retrieval.reranker import DocRAFTReranker
 
 from langgraph.graph import StateGraph, END
+from opentelemetry import trace
 
 logger = logging.getLogger("docraft.agent")
+tracer = trace.get_tracer("docraft.agent")
 
 # ── Import initialized clients from main to avoid double-instantiation locks ──
 def get_qdrant() -> QdrantClient:
@@ -125,67 +127,93 @@ def retrieve_node(state: AgentState) -> Dict[str, Any]:
         
     embedder = get_embedder()
     
-    # 1. Embed current query
-    query_vector = embedder.embed_query(query)
-    
-    # 2. Build Qdrant metadata filters
-    query_filter = None
-    if doc_filter:
-        from qdrant_client.http import models as qdrant_models
-        if isinstance(doc_filter, str) and doc_filter.strip():
-            query_filter = qdrant_models.Filter(
-                must=[
-                    qdrant_models.FieldCondition(
-                        key="source_document",
-                        match=qdrant_models.MatchValue(value=doc_filter)
-                    )
-                ]
-            )
-        elif isinstance(doc_filter, list) and len(doc_filter) > 0:
-            query_filter = qdrant_models.Filter(
-                must=[
-                    qdrant_models.FieldCondition(
-                        key="source_document",
-                        match=qdrant_models.MatchAny(any=doc_filter)
-                    )
-                ]
-            )
+    with tracer.start_as_current_span("retrieve_points") as span:
+        span.set_attribute("openinference.span.kind", "RETRIEVER")
+        span.set_attribute("input.value", query)
 
-    # 3. Phase 1 Vector Retrieval
-    from ingestion.config import RETRIEVAL_CANDIDATE_K, RETRIEVAL_RERANK_N
-    search_result = qdrant.query_points(
-        collection_name="docraft_knowledge",
-        query=query_vector,
-        query_filter=query_filter,
-        limit=RETRIEVAL_CANDIDATE_K
-    ).points
-    
+        # 1. Embed current query
+        query_vector = embedder.embed_query(query)
+        
+        # 2. Build Qdrant metadata filters
+        query_filter = None
+        if doc_filter:
+            from qdrant_client.http import models as qdrant_models
+            if isinstance(doc_filter, str) and doc_filter.strip():
+                query_filter = qdrant_models.Filter(
+                    must=[
+                        qdrant_models.FieldCondition(
+                            key="source_document",
+                            match=qdrant_models.MatchValue(value=doc_filter)
+                        )
+                    ]
+                )
+            elif isinstance(doc_filter, list) and len(doc_filter) > 0:
+                query_filter = qdrant_models.Filter(
+                    must=[
+                        qdrant_models.FieldCondition(
+                            key="source_document",
+                            match=qdrant_models.MatchAny(any=doc_filter)
+                        )
+                    ]
+                )
+
+        # 3. Phase 1 Vector Retrieval
+        from ingestion.config import RETRIEVAL_CANDIDATE_K, RETRIEVAL_RERANK_N
+        search_result = qdrant.query_points(
+            collection_name="docraft_knowledge",
+            query=query_vector,
+            query_filter=query_filter,
+            limit=RETRIEVAL_CANDIDATE_K
+        ).points
+        
+        span.set_attribute("retriever.num_documents", len(search_result))
+        retrieved_docs = []
+        for hit in search_result:
+            retrieved_docs.append({
+                "document.id": str(hit.id),
+                "document.content": hit.payload.get("text", "")[:200] if hit.payload else ""
+            })
+        span.set_attribute("retrieval.documents", json.dumps(retrieved_docs))
+        
     # 4. Phase 2 Reranking
     results = []
     enable_reranker = os.getenv("ENABLE_RERANKER", "false").lower() == "true"
     
     if len(search_result) > 0:
         if enable_reranker:
-            try:
-                reranker = get_reranker()
-                texts = [hit.payload.get("text", "") for hit in search_result]
-                reranked = reranker.rerank(query, texts, top_n=RETRIEVAL_RERANK_N)
-                for orig_idx, score in reranked:
-                    if score >= -4.0:  # Reranker noise-floor threshold
-                        hit = search_result[orig_idx]
-                        results.append({
-                            "id": hit.id,
-                            "score": score,
-                            "text": html.unescape(hit.payload.get("text", "")),
-                            "display_text": hit.payload.get("display_text", ""),
-                            "source_document": hit.payload.get("source_document") or hit.payload.get("filename"),
-                            "image_path": hit.payload.get("image_path"),
-                            "content_type": hit.payload.get("content_type", "text"),
-                            "chunk_index": hit.payload.get("chunk_index")
+            with tracer.start_as_current_span("rerank_points") as rerank_span:
+                rerank_span.set_attribute("openinference.span.kind", "RERANKER")
+                rerank_span.set_attribute("input.value", query)
+                try:
+                    reranker = get_reranker()
+                    texts = [hit.payload.get("text", "") for hit in search_result]
+                    rerank_span.set_attribute("reranker.num_documents", len(texts))
+                    reranked = reranker.rerank(query, texts, top_n=RETRIEVAL_RERANK_N)
+                    
+                    rerank_docs = []
+                    for orig_idx, score in reranked:
+                        rerank_docs.append({
+                            "document.index": orig_idx,
+                            "document.score": float(score)
                         })
-            except Exception as err:
-                logger.error(f"Reranking inside agent failed: {err}. Falling back to cosine scores.")
-                enable_reranker = False
+                    rerank_span.set_attribute("reranker.output_documents", json.dumps(rerank_docs))
+
+                    for orig_idx, score in reranked:
+                        if score >= -4.0:  # Reranker noise-floor threshold
+                            hit = search_result[orig_idx]
+                            results.append({
+                                "id": hit.id,
+                                "score": score,
+                                "text": html.unescape(hit.payload.get("text", "")),
+                                "display_text": hit.payload.get("display_text", ""),
+                                "source_document": hit.payload.get("source_document") or hit.payload.get("filename"),
+                                "image_path": hit.payload.get("image_path"),
+                                "content_type": hit.payload.get("content_type", "text"),
+                                "chunk_index": hit.payload.get("chunk_index")
+                            })
+                except Exception as err:
+                    logger.error(f"Reranking inside agent failed: {err}. Falling back to cosine scores.")
+                    enable_reranker = False
                 
         if not enable_reranker:
             logger.info("[Agent Loop] Bypassing cross-encoder reranker for ultra-low latency (<50ms).")
@@ -350,27 +378,74 @@ def check_is_code_request(query: str) -> bool:
     return len(words.intersection(code_words)) > 0
 
 
+def set_span_tokens_and_output(span, response, content):
+    """Extract token counts and set OpenInference LLM attributes on the span."""
+    span.set_attribute("llm.output_messages", json.dumps([{"role": "assistant", "content": content}]))
+    
+    prompt_tokens = 0
+    completion_tokens = 0
+    
+    # Handle dict-like response
+    if isinstance(response, dict):
+        prompt_tokens = response.get("prompt_eval_count", 0)
+        completion_tokens = response.get("eval_count", 0)
+    # Handle object response (Ollama client python objects)
+    else:
+        prompt_tokens = getattr(response, "prompt_eval_count", 0)
+        completion_tokens = getattr(response, "eval_count", 0)
+        
+    if prompt_tokens > 0 or completion_tokens > 0:
+        span.set_attribute("llm.token_count.prompt", prompt_tokens)
+        span.set_attribute("llm.token_count.completion", completion_tokens)
+        span.set_attribute("llm.token_count.total", prompt_tokens + completion_tokens)
+
+
 def call_ollama_chat_with_fallback(ollama_client, model: str, messages: list, options: dict) -> str:
     """
     Calls ollama.chat with the primary model. If it fails with any exception
     (e.g., model not found or loading failure), falls back to 'qwen2.5-coder:7b'.
+    Traces the execution using OpenTelemetry with OpenInference conventions.
     """
     fallback_model = "qwen2.5-coder:7b"
-    if model == fallback_model:
-        response = ollama_client.chat(model=model, messages=messages, options=options)
-        return response["message"]["content"]
+    
+    with tracer.start_as_current_span("ollama_chat_with_fallback") as span:
+        span.set_attribute("openinference.span.kind", "LLM")
+        span.set_attribute("llm.input_messages", json.dumps(messages))
+        span.set_attribute("llm.invocation_parameters", json.dumps(options))
         
-    try:
-        response = ollama_client.chat(model=model, messages=messages, options=options)
-        return response["message"]["content"]
-    except Exception as e:
-        logger.warning(f"Ollama chat call failed on primary model '{model}': {e}. Trying fallback '{fallback_model}'...")
+        if model == fallback_model:
+            span.set_attribute("llm.model_name", model)
+            try:
+                response = ollama_client.chat(model=model, messages=messages, options=options)
+                content = response["message"]["content"]
+                set_span_tokens_and_output(span, response, content)
+                return content
+            except Exception as e:
+                span.record_exception(e)
+                span.set_status(trace.StatusCode.ERROR, str(e))
+                raise e
+        
+        span.set_attribute("llm.model_name", f"{model} (fallback target: {fallback_model})")
         try:
-            response = ollama_client.chat(model=fallback_model, messages=messages, options=options)
-            return response["message"]["content"]
-        except Exception as fallback_err:
-            logger.error(f"Fallback model '{fallback_model}' also failed: {fallback_err}")
-            raise fallback_err
+            response = ollama_client.chat(model=model, messages=messages, options=options)
+            content = response["message"]["content"]
+            span.set_attribute("llm.model_name", model)
+            set_span_tokens_and_output(span, response, content)
+            return content
+        except Exception as e:
+            logger.warning(f"Ollama chat call failed on primary model '{model}': {e}. Trying fallback '{fallback_model}'...")
+            span.add_event("primary_failed_switching_to_fallback", {"error": str(e)})
+            try:
+                span.set_attribute("llm.model_name", f"{model} -> {fallback_model}")
+                response = ollama_client.chat(model=fallback_model, messages=messages, options=options)
+                content = response["message"]["content"]
+                set_span_tokens_and_output(span, response, content)
+                return content
+            except Exception as fallback_err:
+                logger.error(f"Fallback model '{fallback_model}' also failed: {fallback_err}")
+                span.record_exception(fallback_err)
+                span.set_status(trace.StatusCode.ERROR, str(fallback_err))
+                raise fallback_err
 
 
 def generator_node(state: AgentState) -> Dict[str, Any]:
